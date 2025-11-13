@@ -1,0 +1,70 @@
+.report-container {
+    max-width: 800px;
+    margin: 0 auto;
+
+    .report-controls {
+        background-color: #f9f9f9;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        padding: 1rem;
+        margin-bottom: 2rem;
+        display: flex;
+        gap: 1.5rem;
+        align-items: center;
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+
+            label {
+                margin-bottom: 0.5rem;
+                font-size: 0.9em;
+            }
+
+            input {
+                padding: 0.5rem;
+                border: 1px solid #ccc;
+                border-radius: 4px;
+            }
+        }
+
+        .btn-primary {
+            background-color: #3498db;
+            color: white;
+            padding: 0.75rem 1.5rem;
+            text-decoration: none;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+            align-self: flex-end;
+
+            &:disabled {
+                background-color: #bdc3c7;
+            }
+        }
+    }
+
+    .report-content {
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+            margin-bottom: 2rem;
+
+            td,
+            th {
+                border: 1px solid #ddd;
+                padding: 8px;
+                text-align: left;
+            }
+
+            th {
+                background-color: #eee;
+            }
+
+            tfoot th {
+                text-align: right;
+            }
+        }
+    }
+}

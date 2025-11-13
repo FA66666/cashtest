@@ -1,0 +1,28 @@
+{
+	"errors": {
+		"generic": "An unknown error occurred.",
+		"invoice_not_found": "Invoice not found.",
+		"customer_not_found": "Customer not found.",
+		"vendor_not_found": "Vendor not found.",
+		"account_not_found": "Account not found.",
+		"stock_account_not_found": "Stock account associated with this commodity not found.",
+		"insufficient_stock": "Insufficient stock for item {item}.",
+		"unauthorized": "Unauthorized. A valid access token is required.",
+		"forbidden": "Forbidden. You do not have permission to perform this action.",
+		"db_connection_failed": "Database connection failed. Service temporarily unavailable.",
+		"login_failed": "Login failed. Please check your credentials."
+	},
+	"messages": {
+		"invoice_created": "Invoice created successfully.",
+		"bill_created": "Bill created successfully.",
+		"journal_created": "messages.journal_created",
+		"payment_created": "messages.payment_created"
+	},
+	"Access denied for user 'your_mysql_user'@'localhost' (using password": " YES",
+	"Unknown column 'tax_override' in 'field list'": "Unknown column 'tax_override' in 'field list'",
+	"Field 'discount_num' doesn't have a default value": "Field 'discount_num' doesn't have a default value",
+	"Cannot read properties of undefined (reading 'reduce')": "Cannot read properties of undefined (reading 'reduce')",
+	"accounts": {
+		"reduce is not a function": "accounts.reduce is not a function"
+	}
+}

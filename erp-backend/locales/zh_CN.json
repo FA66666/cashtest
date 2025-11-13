@@ -1,0 +1,28 @@
+{
+	"errors": {
+		"generic": "发生未知错误。",
+		"invoice_not_found": "未找到发票。",
+		"customer_not_found": "未找到客户。",
+		"vendor_not_found": "未找到供应商。",
+		"account_not_found": "未找到会计科目。",
+		"stock_account_not_found": "未找到与此商品关联的库存账户。",
+		"insufficient_stock": "商品 {item} 库存不足。",
+		"unauthorized": "认证失败。需要提供有效的访问令牌。",
+		"forbidden": "禁止访问。您没有执行此操作的权限。",
+		"db_connection_failed": "数据库连接失败。服务暂时不可用。",
+		"login_failed": "登录失败，请检查您的凭据。"
+	},
+	"messages": {
+		"invoice_created": "发票创建成功。",
+		"bill_created": "采购账单创建成功。",
+		"journal_created": "messages.journal_created",
+		"payment_created": "messages.payment_created"
+	},
+	"Access denied for user 'your_mysql_user'@'localhost' (using password": " YES)",
+	"Unknown column 'tax_override' in 'field list'": "Unknown column 'tax_override' in 'field list'",
+	"Field 'discount_num' doesn't have a default value": "Field 'discount_num' doesn't have a default value",
+	"Cannot read properties of undefined (reading 'reduce')": "Cannot read properties of undefined (reading 'reduce')",
+	"accounts": {
+		"reduce is not a function": "accounts.reduce is not a function"
+	}
+}

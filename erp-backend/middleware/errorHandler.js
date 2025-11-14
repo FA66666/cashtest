@@ -12,6 +12,10 @@ function errorHandler(err, req, res, next) {
     `[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`
   );
   console.error("Error Message:", err.message);
+  // (新增) 打印插值数据
+  if (err.interpolation) {
+    console.error("Error Data:", err.interpolation);
+  }
   console.error("Error Stack:", err.stack);
   console.error("======================================");
 
@@ -20,25 +24,26 @@ function errorHandler(err, req, res, next) {
 
   let statusCode = err.statusCode || 500;
 
+  // (修改)
   // 尝试使用 err.message 作为 i18n 的 key
-  let message = translate(err.message);
+  // 并传入 err.interpolation (例如 { item: 'WIDGET-001' })
+  let message = translate(err.message, err.interpolation || {});
+
   if (message === err.message) {
     // 检查翻译是否失败
     if (message.startsWith("errors.")) {
-      message = translate(message);
+      message = translate(message); // 再次尝试（备用）
     } else {
       // 如果它是一个未知的错误（如数据库错误），则显示通用消息
       message = translate("errors.generic");
     }
   }
 
-  // (可选) 为特定类型的错误自定义状态码
   if (err.code === "ECONNREFUSED") {
-    statusCode = 503; // Service Unavailable (e.g., DB is down)
+    statusCode = 503;
     message = translate("errors.db_connection_failed");
   }
 
-  // 确保在响应发送之前没有其他内容被发送
   if (res.headersSent) {
     return next(err);
   }

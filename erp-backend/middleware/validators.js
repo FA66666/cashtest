@@ -41,6 +41,7 @@ const validateCreateSalesInvoice = [
     .withMessage("line_items must be an array with at least one item"),
   validateGUID("line_items.*.income_account_guid"),
   validateGUID("line_items.*.commodity_guid"),
+  validateGUID("line_items.*.stock_account_guid"), // (新增)
   // (移除) cost
   body("line_items.*.quantity")
     .isFloat({ gt: 0 })

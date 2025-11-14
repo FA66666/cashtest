@@ -37,6 +37,7 @@
                     <thead>
                         <tr>
                             <th>{{ $t('sales.item') }}</th>
+                            <th>{{ $t('inventory.stock_account') }}</th>
                             <th>{{ $t('sales.income_account') }}</th>
                             <th>{{ $t('sales.quantity') }}</th>
                             <th>{{ $t('sales.price') }}</th>
@@ -48,6 +49,11 @@
                         <tr v-for="(item, index) in invoice.line_items" :key="index">
                             <td>
                                 <CommodityPicker v-model="item.commodity_guid" placeholder="Select Item" required />
+                            </td>
+                            <td>
+                                <AccountPicker v-model="item.stock_account_guid" accountTypes="STOCK"
+                                    placeholder="Select Stock Account" required
+                                    :filterByCommodityGuid="item.commodity_guid" />
                             </td>
                             <td>
                                 <AccountPicker v-model="item.income_account_guid" accountTypes="INCOME"
@@ -110,14 +116,15 @@ const invoice = reactive({
     currency_guid: '',
     date_opened: getISODateTime(),
     notes: '',
-    // (移除) cogs_account_guid: '', 
+    // (移除) cogs_account_guid
     line_items: [
         {
             commodity_guid: '',
+            stock_account_guid: '', // (新增)
             income_account_guid: '',
             quantity: 1,
             price: 0,
-            // (移除) cost: 0 
+            // (移除) cost
         }
     ]
 });
@@ -128,12 +135,12 @@ const selectedCurrencyMnemonic = computed(() => {
     return currency ? currency.mnemonic : 'USD';
 });
 
-// (修改)
+// (修改) 侦听货币变化，只重置收入科目
 watch(() => invoice.currency_guid, (newCurrency, oldCurrency) => {
     if (newCurrency !== oldCurrency) {
-        // (移除) invoice.cogs_account_guid = '';
         invoice.line_items.forEach(item => {
             item.income_account_guid = '';
+            // 我们不再重置 stock_account_guid
         });
     }
 });
@@ -146,6 +153,7 @@ const addLineItem = () => {
     // (修改)
     invoice.line_items.push({
         commodity_guid: '',
+        stock_account_guid: '',
         income_account_guid: '',
         quantity: 1,
         price: 0,
@@ -169,13 +177,12 @@ const handleSubmit = async () => {
             currency_guid: invoice.currency_guid,
             date_opened: formatDateTimeForAPI(invoice.date_opened),
             notes: invoice.notes,
-            // (移除) cogs_account_guid
             line_items: invoice.line_items.map(item => ({
                 commodity_guid: item.commodity_guid,
+                stock_account_guid: item.stock_account_guid, // (新增)
                 income_account_guid: item.income_account_guid,
                 quantity: item.quantity,
                 price: item.price,
-                // (移除) cost
                 description: ''
             }))
         };

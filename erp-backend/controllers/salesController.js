@@ -274,7 +274,6 @@ exports.getInvoiceDetails = async (req, res, next) => {
   }
 };
 
-// (已修改) 重构以自动处理 COGS 和成本
 exports.createSalesInvoice = async (req, res, next) => {
   const connection = await db.getConnection();
   try {
@@ -290,14 +289,12 @@ exports.createSalesInvoice = async (req, res, next) => {
 
     await connection.beginTransaction();
 
-    // 1. 查找/创建应收账款(A/R)账户
     const ar_account_guid = await findOrCreateArAccount(
       connection,
       customer_guid,
       currency_guid
     );
 
-    // 2. 创建销售交易 (Transaction 1)
     const sales_tx_guid = await createTransaction(
       connection,
       currency_guid,
@@ -320,7 +317,7 @@ exports.createSalesInvoice = async (req, res, next) => {
       currency_guid,
       1,
       customer_guid,
-      sales_tx_guid, // (重要) 链接到销售交易
+      sales_tx_guid,
     ]);
 
     const entrySql = `
@@ -332,18 +329,14 @@ exports.createSalesInvoice = async (req, res, next) => {
       .slice(0, 19)
       .replace(/[-T:]/g, "");
 
-    // (新增) 用于存储按货币分组的成本
     const cogs_map = new Map();
 
-    // 3. 循环行项目, 创建收入分录并计算成本
     for (const item of line_items) {
-      // --- 3a. 处理销售/收入 (交易 1) ---
       const item_sales_value_num = Math.round(
         item.quantity * item.price * DENOMINATOR
       );
       total_sales_value_num += item_sales_value_num;
 
-      // 贷 (Credit): 收入科目 (以销售货币)
       await createSplit(
         connection,
         sales_tx_guid,
@@ -368,62 +361,79 @@ exports.createSalesInvoice = async (req, res, next) => {
         invoice_guid,
       ]);
 
-      // --- 3b. (新增) 计算成本和COGS ---
+      const stock_account_guid = item.stock_account_guid;
 
-      // 查找库存账户
-      const stockSql = `SELECT guid, parent_guid FROM accounts WHERE commodity_guid = ? AND account_type = 'STOCK' LIMIT 1`;
-      const [stock_acct] = await connection.query(stockSql, [
-        item.commodity_guid,
+      const parentSql = `SELECT p.commodity_guid 
+                       FROM accounts a 
+                       JOIN accounts p ON a.parent_guid = p.guid 
+                       WHERE a.guid = ? LIMIT 1`;
+      const [parent_acct_rows] = await connection.query(parentSql, [
+        stock_account_guid,
       ]);
-      if (!stock_acct) {
+      if (!parent_acct_rows || parent_acct_rows.length === 0) {
         throw new Error(
-          `No STOCK account found for commodity: ${item.commodity_guid}`
+          `Invalid stock account selected: ${stock_account_guid}`
         );
       }
+      const cost_currency_guid = parent_acct_rows[0].commodity_guid;
 
-      // 查找库存的记账货币 (通过其父账户)
-      const parentSql = `SELECT commodity_guid FROM accounts WHERE guid = ? LIMIT 1`;
-      const [parent_acct] = await connection.query(parentSql, [
-        stock_acct.parent_guid,
-      ]);
-      const cost_currency_guid = parent_acct.commodity_guid;
-
-      // 查找此货币对应的 COGS 账户
       const cogsSql = `SELECT guid FROM accounts WHERE account_type = 'EXPENSE' AND commodity_guid = ? AND name LIKE 'Cost of Goods Sold%' LIMIT 1`;
-      const [cogs_acct] = await connection.query(cogsSql, [cost_currency_guid]);
-      if (!cogs_acct) {
+      const [cogs_acct_rows] = await connection.query(cogsSql, [
+        cost_currency_guid,
+      ]);
+      if (!cogs_acct_rows || cogs_acct_rows.length === 0) {
         throw new Error(
           `No COGS account found for currency: ${cost_currency_guid}`
         );
       }
+      const cogs_acct = cogs_acct_rows[0];
 
-      // 计算平均成本
       const costSql = `SELECT SUM(quantity_num / quantity_denom) AS stock_level, SUM(value_num / value_denom) AS total_value FROM splits WHERE account_guid = ?`;
-      const [cost_data] = await connection.query(costSql, [stock_acct.guid]);
+      const [cost_data_rows] = await connection.query(costSql, [
+        stock_account_guid,
+      ]);
+      const cost_data = cost_data_rows[0];
+
+      const current_stock_level =
+        cost_data && cost_data.stock_level
+          ? parseFloat(cost_data.stock_level)
+          : 0;
+
+      // (!!!) (修改) 检查库存并抛出带变量的错误 (!!!)
+      if (item.quantity > current_stock_level) {
+        // (新增) 获取商品 SKU 以便显示
+        const [comm_rows] = await connection.query(
+          "SELECT mnemonic FROM commodities WHERE guid = ?",
+          [item.commodity_guid]
+        );
+        const itemName = comm_rows[0] ? comm_rows[0].mnemonic : "unknown item";
+
+        // 抛出一个带 i18n 键和插值变量的错误
+        const err = new Error("errors.insufficient_stock");
+        err.interpolation = { item: itemName }; // (新增)
+        throw err;
+      }
 
       let average_cost = 0;
-      if (cost_data && cost_data.stock_level > 0) {
-        average_cost = cost_data.total_value / cost_data.stock_level;
+      if (current_stock_level > 0) {
+        average_cost = cost_data.total_value / current_stock_level;
       }
 
       const item_cost_value_num = Math.round(
         item.quantity * average_cost * DENOMINATOR
       );
 
-      // 将成本按货币分组
       if (!cogs_map.has(cost_currency_guid)) {
         cogs_map.set(cost_currency_guid, []);
       }
       cogs_map.get(cost_currency_guid).push({
-        stock_account_guid: stock_acct.guid,
+        stock_account_guid: stock_account_guid,
         cogs_account_guid: cogs_acct.guid,
         quantity_num: -item_quantity_num,
-        value_num: -item_cost_value_num, // 贷方 (Credit)
+        value_num: -item_cost_value_num,
       });
     }
 
-    // 4. 创建 A/R 借方分录 (交易 1)
-    // 借 (Debit): 应收账款 (以销售货币)
     await createSplit(
       connection,
       sales_tx_guid,
@@ -434,7 +444,6 @@ exports.createSalesInvoice = async (req, res, next) => {
       total_sales_value_num
     );
 
-    // 5. (新增) 循环 COGS 分组, 创建成本交易 (Transaction 2, 3...)
     for (const [cost_currency_guid, splits_data] of cogs_map.entries()) {
       const cogs_tx_guid = await createTransaction(
         connection,
@@ -443,36 +452,27 @@ exports.createSalesInvoice = async (req, res, next) => {
         `COGS for Invoice ${invoice_guid}`
       );
 
-      let total_cogs_value_num = 0;
-
       for (const split_data of splits_data) {
-        // 贷 (Credit): 库存
         await createSplit(
           connection,
           cogs_tx_guid,
           split_data.stock_account_guid,
           "COGS",
           "Invoice",
-          split_data.value_num, // 负数
-          split_data.quantity_num // 负数
+          split_data.value_num,
+          split_data.quantity_num
         );
 
-        // 借 (Debit): COGS
         await createSplit(
           connection,
           cogs_tx_guid,
           split_data.cogs_account_guid,
           "COGS",
           "Invoice",
-          -split_data.value_num, // 变为正数
-          -split_data.value_num // Qty = Value
+          -split_data.value_num,
+          -split_data.value_num
         );
-
-        total_cogs_value_num += split_data.value_num;
       }
-
-      // (注意: GnuCash 实际上会为每个 COGS 科目创建一个总借方,
-      // 但我们上面的逐行借贷在会计上是平衡且等效的)
     }
 
     await connection.commit();
@@ -520,7 +520,6 @@ exports.createCustomerPayment = async (req, res, next) => {
 
     const value_num = Math.round(amount * DENOMINATOR);
 
-    // 借 (Debit): 银行存款
     await createSplit(
       connection,
       tx_guid,
@@ -531,7 +530,6 @@ exports.createCustomerPayment = async (req, res, next) => {
       value_num
     );
 
-    // 贷 (Credit): 应收账款 (来自动态查找)
     await createSplit(
       connection,
       tx_guid,

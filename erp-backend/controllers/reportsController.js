@@ -1,23 +1,20 @@
 const db = require("../config/db");
 require("dotenv").config();
 
-// (已删除) 不再硬编码基础货币
-// const BASE_CURRENCY_GUID = 'ade56487e45e41219b5810c14b76c11d'; // USD
+// (新增) 硬编码 CNY 的 GUID
+const CNY_CURRENCY_GUID = "f4b3e81a3d3e4ed8b46a7c06f8c4c7b8";
 
 /**
  * 试算平衡表 (Trial Balance)
- * (已修正为支持动态多币种换算)
  */
 exports.getTrialBalance = async (req, res, next) => {
   try {
-    // (修改)
-    // 现在需要两个参数：as_of_date 和 base_currency_guid
-    const { as_of_date, base_currency_guid } = req.query;
-    if (!as_of_date || !base_currency_guid) {
-      return res.status(400).json({
-        error:
-          "Missing required query parameters: as_of_date and base_currency_guid",
-      });
+    // (修改) 只获取 as_of_date
+    const { as_of_date } = req.query;
+    if (!as_of_date) {
+      return res
+        .status(400)
+        .json({ error: "Missing required query parameter: as_of_date" });
     }
 
     const end_datetime = as_of_date + " 23:59:59";
@@ -36,15 +33,15 @@ exports.getTrialBalance = async (req, res, next) => {
               SELECT (p.value_num / p.value_denom)
               FROM prices p
               WHERE 
-                p.commodity_guid = t.currency_guid -- (例如: 从 CNY)
-                AND p.currency_guid = ?              -- (修改: 换算到选定的货币)
+                p.commodity_guid = t.currency_guid 
+                AND p.currency_guid = ?              -- (修改) 硬编码
                 AND p.date <= t.post_date
               ORDER BY p.date DESC
               LIMIT 1
             ), 
             CASE 
-              WHEN t.currency_guid = ? THEN 1.0 -- (修改: 检查是否等于选定的货币)
-              ELSE 0.0 
+              WHEN t.currency_guid = ? THEN 1.0 -- (修改) 硬编码
+              ELSE NULL 
             END
           )
         ) AS balance
@@ -57,9 +54,10 @@ exports.getTrialBalance = async (req, res, next) => {
       ORDER BY a.code, a.name
     `;
 
+    // (修改) 使用 CNY_CURRENCY_GUID
     const accounts = await db.query(sql, [
-      base_currency_guid, // (修改)
-      base_currency_guid, // (修改)
+      CNY_CURRENCY_GUID,
+      CNY_CURRENCY_GUID,
       end_datetime,
     ]);
 
@@ -70,7 +68,7 @@ exports.getTrialBalance = async (req, res, next) => {
 
     res.json({
       as_of_date: as_of_date,
-      base_currency: base_currency_guid, // (修改)
+      base_currency: CNY_CURRENCY_GUID, // (修改)
       accounts: accounts,
       total_balance: total_balance.toFixed(2),
     });
@@ -81,16 +79,14 @@ exports.getTrialBalance = async (req, res, next) => {
 
 /**
  * 利润表 (Profit & Loss Statement)
- * (已修正为支持动态多币种换算)
  */
 exports.getProfitLoss = async (req, res, next) => {
   try {
-    // (修改)
-    const { start_date, end_date, base_currency_guid } = req.query;
-    if (!start_date || !end_date || !base_currency_guid) {
+    // (修改) 只获取日期
+    const { start_date, end_date } = req.query;
+    if (!start_date || !end_date) {
       return res.status(400).json({
-        error:
-          "Missing query parameters: start_date, end_date, and base_currency_guid",
+        error: "Missing query parameters: start_date and end_date",
       });
     }
 
@@ -112,14 +108,14 @@ exports.getProfitLoss = async (req, res, next) => {
               FROM prices p
               WHERE 
                 p.commodity_guid = t.currency_guid
-                AND p.currency_guid = ?
+                AND p.currency_guid = ? -- (修改) 硬编码
                 AND p.date <= t.post_date
               ORDER BY p.date DESC
               LIMIT 1
             ),
             CASE 
-              WHEN t.currency_guid = ? THEN 1.0 
-              ELSE 0.0 
+              WHEN t.currency_guid = ? THEN 1.0 -- (修改) 硬编码
+              ELSE NULL 
             END
           )
         ) AS balance
@@ -134,9 +130,10 @@ exports.getProfitLoss = async (req, res, next) => {
       ORDER BY a.account_type, a.code
     `;
 
+    // (修改) 使用 CNY_CURRENCY_GUID
     const accounts = await db.query(sql, [
-      base_currency_guid, // (修改)
-      base_currency_guid, // (修改)
+      CNY_CURRENCY_GUID,
+      CNY_CURRENCY_GUID,
       start_datetime,
       end_datetime,
     ]);
@@ -162,7 +159,7 @@ exports.getProfitLoss = async (req, res, next) => {
     res.json({
       start_date: start_date,
       end_date: end_date,
-      base_currency: base_currency_guid, // (修改)
+      base_currency: CNY_CURRENCY_GUID, // (修改)
       total_income: total_income,
       total_expense: total_expense,
       net_income: net_income,
@@ -176,17 +173,15 @@ exports.getProfitLoss = async (req, res, next) => {
 
 /**
  * 资产负债表 (Balance Sheet)
- * (已修正为支持动态多币种换算)
  */
 exports.getBalanceSheet = async (req, res, next) => {
   try {
-    // (修改)
-    const { as_of_date, base_currency_guid } = req.query;
-    if (!as_of_date || !base_currency_guid) {
-      return res.status(400).json({
-        error:
-          "Missing required query parameters: as_of_date and base_currency_guid",
-      });
+    // (修改) 只获取 as_of_date
+    const { as_of_date } = req.query;
+    if (!as_of_date) {
+      return res
+        .status(400)
+        .json({ error: "Missing required query parameter: as_of_date" });
     }
 
     const end_datetime = as_of_date + " 23:59:59";
@@ -206,14 +201,14 @@ exports.getBalanceSheet = async (req, res, next) => {
               FROM prices p
               WHERE 
                 p.commodity_guid = t.currency_guid
-                AND p.currency_guid = ?
+                AND p.currency_guid = ? -- (修改) 硬编码
                 AND p.date <= t.post_date
               ORDER BY p.date DESC
               LIMIT 1
             ),
             CASE 
-              WHEN t.currency_guid = ? THEN 1.0 
-              ELSE 0.0 
+              WHEN t.currency_guid = ? THEN 1.0 -- (修改) 硬编码
+              ELSE NULL
             END
           )
         ) AS balance
@@ -228,9 +223,10 @@ exports.getBalanceSheet = async (req, res, next) => {
       ORDER BY a.account_type, a.code
     `;
 
+    // (修改) 使用 CNY_CURRENCY_GUID
     const accounts = await db.query(sql, [
-      base_currency_guid, // (修改)
-      base_currency_guid, // (修改)
+      CNY_CURRENCY_GUID,
+      CNY_CURRENCY_GUID,
       end_datetime,
     ]);
 
@@ -276,7 +272,7 @@ exports.getBalanceSheet = async (req, res, next) => {
 
     res.json({
       as_of_date: as_of_date,
-      base_currency: base_currency_guid, // (修改)
+      base_currency: CNY_CURRENCY_GUID, // (修改)
       assets: {
         accounts: asset_accounts,
         total: total_assets,

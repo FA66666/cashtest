@@ -10,7 +10,8 @@
 		"unauthorized": "认证失败。需要提供有效的访问令牌。",
 		"forbidden": "禁止访问。您没有执行此操作的权限。",
 		"db_connection_failed": "数据库连接失败。服务暂时不可用。",
-		"login_failed": "登录失败，请检查您的凭据。"
+		"login_failed": "登录失败，请检查您的凭据。",
+		"no_net_effect": "过账失败：该分录未产生净效应（例如：借贷了同一科目）。"
 	},
 	"messages": {
 		"invoice_created": "发票创建成功。",
@@ -24,5 +25,8 @@
 	"Cannot read properties of undefined (reading 'reduce')": "Cannot read properties of undefined (reading 'reduce')",
 	"accounts": {
 		"reduce is not a function": "accounts.reduce is not a function"
+	},
+	"Bind parameters must not contain undefined": {
+		" To pass SQL NULL specify JS null": "Bind parameters must not contain undefined. To pass SQL NULL specify JS null"
 	}
 }

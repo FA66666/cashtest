@@ -10,7 +10,8 @@
 		"unauthorized": "Unauthorized. A valid access token is required.",
 		"forbidden": "Forbidden. You do not have permission to perform this action.",
 		"db_connection_failed": "Database connection failed. Service temporarily unavailable.",
-		"login_failed": "Login failed. Please check your credentials."
+		"login_failed": "Login failed. Please check your credentials.",
+		"no_net_effect": "Entry failed: The transaction has no net effect on the ledger (e.g., Debiting and Crediting the same account)."
 	},
 	"messages": {
 		"invoice_created": "Invoice created successfully.",
@@ -24,5 +25,8 @@
 	"Cannot read properties of undefined (reading 'reduce')": "Cannot read properties of undefined (reading 'reduce')",
 	"accounts": {
 		"reduce is not a function": "accounts.reduce is not a function"
+	},
+	"Bind parameters must not contain undefined": {
+		" To pass SQL NULL specify JS null": "Bind parameters must not contain undefined. To pass SQL NULL specify JS null"
 	}
 }

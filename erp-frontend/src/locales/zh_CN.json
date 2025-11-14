@@ -46,8 +46,7 @@
     "notes": "备注",
     "actions": "操作",
     "details": "客户详情",
-    "confirm_delete": "您确定要删除 {name} 吗？",
-    "currency_edit_warning": "货币在创建后无法修改。"
+    "confirm_delete": "您确定要删除 {name} 吗？"
   },
   "vendors": {
     "create": "新供应商",
@@ -60,8 +59,7 @@
     "notes": "备注",
     "actions": "操作",
     "details": "供应商详情",
-    "confirm_delete": "您确定要删除 {name} 吗？",
-    "currency_edit_warning": "货币在创建后无法修改。"
+    "confirm_delete": "您确定要删除 {name} 吗？"
   },
   "ledger": {
     "create": "新科目",
@@ -87,7 +85,10 @@
     "unbalanced": "未平衡",
     "post_entry": "过账",
     "must_balance": "分录必须平衡 (借方 = 贷方) 且总额不为零。",
-    "must_have_splits": "日记账必须至少有两行有效分录。"
+    "must_have_splits": "日记账必须至少有两行有效分录。",
+    "currency_mismatch": "错误：所有分录的账户货币必须与交易货币一致。",
+    "accounts_reset": "货币已更改，分录中的科目已被重置。",
+    "no_net_effect": "过账失败：该分录未产生净效应（例如：借贷了同一科目）。"
   },
   "sales": {
     "create_invoice": "创建销售发票",
@@ -112,7 +113,8 @@
     "checking_account": "银行/现金账户",
     "item": "商品",
     "cost": "成本",
-    "cogs_account": "销货成本科目"
+    "cogs_account": "销货成本科目",
+    "invoice_detail_title": "发票详情"
   },
   "purchases": {
     "create_bill": "创建采购账单",
@@ -134,7 +136,9 @@
     "record_payment": "登记付款",
     "payment_details": "付款详情",
     "amount": "金额",
-    "checking_account": "银行/现金账户"
+    "checking_account": "银行/现金账户",
+    "select_vendor_first": "请先选择一个供应商来添加行项目。",
+    "bill_detail_title": "账单详情"
   },
   "inventory": {
     "adjust": "库存调整",
@@ -148,8 +152,12 @@
     "quantity_change": "数量变化",
     "quantity_note": "负数表示减少，正数表示增加。",
     "cost_per_unit": "单位成本 (本次调整)",
+    "cost_currency_note": "以所选货币计算的成本",
     "notes": "备注",
-    "submit_adjustment": "提交调整"
+    "submit_adjustment": "提交调整",
+    "valuation_currency": "记账货币",
+    "total_value": "总价值 (CNY)",
+    "is_stock_item": "是库存商品吗？"
   },
   "reports": {
     "trial_balance": "试算平衡表",
@@ -194,6 +202,7 @@
   "delete": "删除",
   "save": "保存",
   "cancel": "取消",
+  "back_to_list": "返回列表",
   "messages": {
     "invoice_created": "发票创建成功。",
     "bill_created": "采购账单创建成功。",

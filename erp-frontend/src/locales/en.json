@@ -46,8 +46,7 @@
     "notes": "Notes",
     "actions": "Actions",
     "details": "Customer Details",
-    "confirm_delete": "Are you sure you want to delete {name}?",
-    "currency_edit_warning": "Currency cannot be changed after creation."
+    "confirm_delete": "Are you sure you want to delete {name}?"
   },
   "vendors": {
     "create": "New Vendor",
@@ -60,8 +59,7 @@
     "notes": "Notes",
     "actions": "Actions",
     "details": "Vendor Details",
-    "confirm_delete": "Are you sure you want to delete {name}?",
-    "currency_edit_warning": "Currency cannot be changed after creation."
+    "confirm_delete": "Are you sure you want to delete {name}?"
   },
   "ledger": {
     "create": "New Account",
@@ -87,7 +85,10 @@
     "unbalanced": "Unbalanced",
     "post_entry": "Post Entry",
     "must_balance": "Entry must balance (Debits = Credits) and be non-zero.",
-    "must_have_splits": "A journal entry must have at least two splits with a value."
+    "must_have_splits": "A journal entry must have at least two splits with a value.",
+    "currency_mismatch": "Error: All accounts must match the transaction currency.",
+    "accounts_reset": "Account selections have been reset due to currency change.",
+    "no_net_effect": "Entry failed: The transaction has no net effect on the ledger."
   },
   "sales": {
     "create_invoice": "Create Sales Invoice",
@@ -112,7 +113,8 @@
     "checking_account": "Bank/Checking Account",
     "item": "Item",
     "cost": "Cost",
-    "cogs_account": "COGS Account"
+    "cogs_account": "COGS Account",
+    "invoice_detail_title": "Invoice Details"
   },
   "purchases": {
     "create_bill": "Create Purchase Bill",
@@ -134,7 +136,9 @@
     "record_payment": "Record Payment",
     "payment_details": "Payment Details",
     "amount": "Amount",
-    "checking_account": "Bank/Checking Account"
+    "checking_account": "Bank/Checking Account",
+    "select_vendor_first": "Please select a vendor to add line items.",
+    "bill_detail_title": "Bill Details"
   },
   "inventory": {
     "adjust": "Adjust Inventory",
@@ -148,8 +152,12 @@
     "quantity_change": "Quantity Change",
     "quantity_note": "Use negative for decrease, positive for increase.",
     "cost_per_unit": "Cost Per Unit (for this adjustment)",
+    "cost_currency_note": "Cost in the selected currency",
     "notes": "Notes",
-    "submit_adjustment": "Submit Adjustment"
+    "submit_adjustment": "Submit Adjustment",
+    "valuation_currency": "Valuation Currency",
+    "total_value": "Total Value (CNY)",
+    "is_stock_item": "Is Stock Item?"
   },
   "reports": {
     "trial_balance": "Trial Balance",
@@ -194,6 +202,7 @@
   "delete": "Delete",
   "save": "Save",
   "cancel": "Cancel",
+  "back_to_list": "Back to List",
   "messages": {
     "invoice_created": "Invoice created successfully.",
     "bill_created": "Bill created successfully.",

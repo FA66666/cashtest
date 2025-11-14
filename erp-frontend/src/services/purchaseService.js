@@ -25,6 +25,11 @@ export const createPurchaseBill = (billData) => {
   return apiClient.post("/purchases/bills", billData);
 };
 
+// (新增)
+export const getPurchaseBillDetails = (guid) => {
+  return apiClient.get(`/purchases/bills/${guid}`);
+};
+
 // (已修改)
 export const createVendorPayment = (data) => {
   return apiClient.post("/purchases/payments", data);

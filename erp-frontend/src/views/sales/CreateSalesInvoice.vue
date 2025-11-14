@@ -14,6 +14,11 @@
                     </div>
 
                     <div class="form-group">
+                        <label for="currency">{{ $t('sales.currency') }}</label>
+                        <CurrencyPicker id="currency" v-model="invoice.currency_guid" required />
+                    </div>
+
+                    <div class="form-group">
                         <label for="date_opened">{{ $t('sales.date') }}</label>
                         <input type="datetime-local" id="date_opened" v-model="invoice.date_opened" required>
                     </div>
@@ -21,7 +26,7 @@
                     <div class="form-group">
                         <label for="cogs_account">{{ $t('sales.cogs_account') }}</label>
                         <AccountPicker id="cogs_account" v-model="invoice.cogs_account_guid" :accountTypes="['EXPENSE']"
-                            placeholder="Select COGS Account" required />
+                            placeholder="Select COGS Account" required :filterByCurrencyGuid="invoice.currency_guid" />
                     </div>
 
                     <div class="form-group full-width">
@@ -52,7 +57,8 @@
                             </td>
                             <td>
                                 <AccountPicker v-model="item.income_account_guid" accountTypes="INCOME"
-                                    placeholder="Select Income Account" required />
+                                    placeholder="Select Income Account" required
+                                    :filterByCurrencyGuid="invoice.currency_guid" />
                             </td>
                             <td>
                                 <input type="number" step="0.01" min="0" v-model.number="item.quantity" required>
@@ -86,7 +92,8 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed } from 'vue';
+// (修改) 导入 watch
+import { ref, reactive, computed, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { createSalesInvoice } from '../../services/salesService';
@@ -95,7 +102,9 @@ import { formatCurrency, formatDateTimeForAPI } from '../../utils/formatters';
 import AccountPicker from '../../components/common/AccountPicker.vue';
 import CustomerPicker from '../../components/common/CustomerPicker.vue';
 import FormError from '../../components/common/FormError.vue';
-import CommodityPicker from '../../components/common/CommodityPicker.vue'; // (新增)
+import CommodityPicker from '../../components/common/CommodityPicker.vue';
+// (新增)
+import CurrencyPicker from '../../components/common/CurrencyPicker.vue';
 
 const { t } = useI18n();
 const router = useRouter();
@@ -108,18 +117,29 @@ const getISODateTime = () => new Date().toISOString().slice(0, 16);
 // (已修改)
 const invoice = reactive({
     customer_guid: '',
+    currency_guid: '', // (新增)
     date_opened: getISODateTime(),
     notes: '',
-    cogs_account_guid: '', // (新增)
+    cogs_account_guid: '',
     line_items: [
         {
-            commodity_guid: '', // (新增)
+            commodity_guid: '',
             income_account_guid: '',
             quantity: 1,
             price: 0,
-            cost: 0 // (新增)
+            cost: 0
         }
     ]
+});
+
+// (新增) 侦听货币变化，重置科目选择
+watch(() => invoice.currency_guid, (newCurrency, oldCurrency) => {
+    if (newCurrency !== oldCurrency) {
+        invoice.cogs_account_guid = '';
+        invoice.line_items.forEach(item => {
+            item.income_account_guid = '';
+        });
+    }
 });
 
 const totalAmount = computed(() => {
@@ -127,7 +147,6 @@ const totalAmount = computed(() => {
 });
 
 const addLineItem = () => {
-    // (已修改)
     invoice.line_items.push({
         commodity_guid: '',
         income_account_guid: '',
@@ -151,16 +170,17 @@ const handleSubmit = async () => {
         // (已修改)
         const apiPayload = {
             customer_guid: invoice.customer_guid,
+            currency_guid: invoice.currency_guid, // (新增)
             date_opened: formatDateTimeForAPI(invoice.date_opened),
             notes: invoice.notes,
-            cogs_account_guid: invoice.cogs_account_guid, // (新增)
+            cogs_account_guid: invoice.cogs_account_guid,
             line_items: invoice.line_items.map(item => ({
                 commodity_guid: item.commodity_guid,
                 income_account_guid: item.income_account_guid,
                 quantity: item.quantity,
                 price: item.price,
                 cost: item.cost,
-                description: '' // (我们在后端不再使用它了，但可以保留)
+                description: ''
             }))
         };
 

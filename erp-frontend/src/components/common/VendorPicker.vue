@@ -26,6 +26,7 @@ defineProps({
         default: 'Select a vendor'
     }
 });
+// (修改) 移除了 'vendorLoaded'
 defineEmits(['update:modelValue']);
 
 const vendors = ref([]);
@@ -34,7 +35,6 @@ const isLoading = ref(false);
 onMounted(async () => {
     isLoading.value = true;
     try {
-        // TODO: 考虑将此 API 调用缓存在 Pinia store 中
         const response = await getVendors();
         vendors.value = response.data;
     } catch (error) {

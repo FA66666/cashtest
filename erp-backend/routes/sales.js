@@ -5,7 +5,8 @@ const { isAuthenticated, hasRole } = require("../middleware/auth");
 const {
   validateCreateSalesInvoice,
   validateCustomer,
-  validateCustomerPayment, // (新增)
+  validateUpdateCustomer, // (新增)
+  validateCustomerPayment,
 } = require("../middleware/validators");
 
 // 所有 /sales 路由都需要认证
@@ -23,7 +24,7 @@ router.post(
 router.put(
   "/customers/:guid",
   hasRole(["admin"]),
-  validateCustomer,
+  validateUpdateCustomer, // (修改)
   salesController.updateCustomer
 );
 router.delete(

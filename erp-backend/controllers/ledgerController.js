@@ -64,16 +64,63 @@ exports.getAccountBalance = async (req, res, next) => {
   }
 };
 
-// (新增) 创建手动日记账 (MJE)
+// (已修改) 创建手动日记账 (MJE)
 exports.createJournalEntry = async (req, res, next) => {
   const connection = await db.getConnection();
   try {
     // 1. 从请求体获取数据 (已由 validator 验证)
     const { date, description, currency_guid, splits } = req.body;
 
+    // (新增) 2. 服务器端货币验证
+    const accountGuids = splits.map((s) => s.account_guid);
+    if (accountGuids.length > 0) {
+      // 动态生成 '?' 占位符
+      const placeholders = accountGuids.map(() => "?").join(",");
+      const sql = `SELECT guid, commodity_guid FROM accounts WHERE guid IN (${placeholders})`;
+      const accounts = await db.query(sql, accountGuids);
+
+      // 检查是否所有账户的货币都与交易货币匹配
+      for (const account of accounts) {
+        if (account.commodity_guid !== currency_guid) {
+          throw new Error(
+            "Currency mismatch: An account's currency does not match the transaction's currency."
+          );
+        }
+      }
+    }
+
+    // (新增) 检查平衡 (从验证器移至此处)
+    const sum = splits.reduce((acc, split) => acc + (split.value || 0), 0);
+    if (Math.abs(sum) > 0.001) {
+      throw new Error(
+        "Journal entry does not balance. The sum of all splits must be zero."
+      );
+    }
+
+    // (新增) 3. 检查净效应 (防止 COGS 借贷 COGS)
+    const accountTotals = new Map();
+    for (const split of splits) {
+      const current = accountTotals.get(split.account_guid) || 0;
+      accountTotals.set(split.account_guid, current + split.value);
+    }
+
+    let hasNetEffect = false;
+    for (const total of accountTotals.values()) {
+      // 检查是否有任何一个账户的*最终*净变化不是 0
+      if (Math.abs(total) > 0.001) {
+        hasNetEffect = true;
+        break;
+      }
+    }
+
+    if (!hasNetEffect) {
+      // (修改) 抛出一个 i18n 键，而不是一个长字符串
+      throw new Error("errors.no_net_effect");
+    }
+
     await connection.beginTransaction();
 
-    // 2. 创建 Transaction (交易总表)
+    // 4. 创建 Transaction (交易总表)
     const tx_guid = generateGuid();
     const txSql = `
       INSERT INTO transactions (guid, currency_guid, num, post_date, enter_date, description)
@@ -88,7 +135,7 @@ exports.createJournalEntry = async (req, res, next) => {
       description,
     ]);
 
-    // 3. 创建 Splits (交易明细)
+    // 5. 创建 Splits (交易明细)
     const splitSql = `
       INSERT INTO splits (guid, tx_guid, account_guid, memo, action, reconcile_state, 
                           value_num, value_denom, quantity_num, quantity_denom)
@@ -116,7 +163,7 @@ exports.createJournalEntry = async (req, res, next) => {
       ]);
     }
 
-    // 4. 提交事务
+    // 6. 提交事务
     await connection.commit();
 
     res.status(201).json({

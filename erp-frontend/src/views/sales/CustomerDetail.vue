@@ -21,12 +21,6 @@
                     </div>
 
                     <div class="form-group">
-                        <label for="currency">{{ $t('customers.currency') }}</label>
-                        <CurrencyPicker id="currency" v-model="customer.currency" required :disabled="isEditMode" />
-                        <small v-if="isEditMode">{{ $t('customers.currency_edit_warning') }}</small>
-                    </div>
-
-                    <div class="form-group">
                         <label for="active">{{ $t('customers.active') }}</label>
                         <select id="active" v-model="customer.active">
                             <option :value="true">Yes</option>
@@ -57,7 +51,7 @@ import { useI18n } from 'vue-i18n';
 import { getCustomer, createCustomer, updateCustomer } from '../../services/salesService';
 import { parseApiError } from '../../utils/errorHandler';
 import FormError from '../../components/common/FormError.vue';
-import CurrencyPicker from '../../components/common/CurrencyPicker.vue';
+// (已移除) CurrencyPicker
 
 const { t } = useI18n();
 const route = useRoute();
@@ -70,12 +64,13 @@ const isSubmitting = ref(false);
 const error = ref(null);
 const apiError = ref(null);
 
+// (已修改)
 const customer = reactive({
     name: '',
     id: '',
     notes: '',
     active: true,
-    currency: ''
+    // currency: '' // (已移除)
 });
 
 onMounted(async () => {
@@ -99,7 +94,6 @@ async function handleSubmit() {
     try {
         if (isEditMode.value) {
             // (已修改)
-            // 我们不再发送 currency，因为它不应该被修改
             const updatePayload = {
                 name: customer.name,
                 id: customer.id,
@@ -108,6 +102,7 @@ async function handleSubmit() {
             };
             await updateCustomer(guid.value, updatePayload);
         } else {
+            // (已修改)
             await createCustomer(customer);
         }
         router.push({ name: 'CustomerList' });

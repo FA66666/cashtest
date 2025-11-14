@@ -26,6 +26,7 @@ defineProps({
         default: 'Select a customer'
     }
 });
+// (修改) 移除了 'customerLoaded'
 defineEmits(['update:modelValue']);
 
 const customers = ref([]);
@@ -34,7 +35,6 @@ const isLoading = ref(false);
 onMounted(async () => {
     isLoading.value = true;
     try {
-        // TODO: 考虑将此 API 调用缓存在 Pinia store 中
         const response = await getCustomers();
         customers.value = response.data;
     } catch (error) {

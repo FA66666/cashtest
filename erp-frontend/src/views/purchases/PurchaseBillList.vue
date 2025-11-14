@@ -33,7 +33,11 @@
             </thead>
             <tbody>
                 <tr v-for="bill in bills" :key="bill.guid">
-                    <td>{{ bill.id }}</td>
+                    <td>
+                        <router-link :to="{ name: 'PurchaseBillDetail', params: { guid: bill.guid } }">
+                            {{ bill.id }}
+                        </router-link>
+                    </td>
                     <td>{{ bill.vendor_name }}</td>
                     <td>{{ formatDateTime(bill.date_opened) }}</td>
                     <td>{{ bill.notes }}</td>

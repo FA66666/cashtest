@@ -33,7 +33,11 @@
             </thead>
             <tbody>
                 <tr v-for="invoice in invoices" :key="invoice.guid">
-                    <td>{{ invoice.id }}</td>
+                    <td>
+                        <router-link :to="{ name: 'SalesInvoiceDetail', params: { guid: invoice.guid } }">
+                            {{ invoice.id }}
+                        </router-link>
+                    </td>
                     <td>{{ invoice.customer_name }}</td>
                     <td>{{ formatDateTime(invoice.date_opened) }}</td>
                     <td>{{ invoice.notes }}</td>

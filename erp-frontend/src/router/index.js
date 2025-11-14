@@ -24,6 +24,12 @@ const routes = [
         name: "SalesInvoiceList", // <-- 名称改为 'SalesInvoiceList'
         component: () => import("../views/sales/SalesInvoiceList.vue"),
       },
+      // (新增) 销售发票详情
+      {
+        path: "sales/invoices/:guid",
+        name: "SalesInvoiceDetail",
+        component: () => import("../views/sales/SalesInvoiceDetail.vue"),
+      },
       {
         path: "sales/invoices/new",
         name: "CreateSalesInvoice",
@@ -58,6 +64,12 @@ const routes = [
         path: "purchases/bills",
         name: "PurchaseBillList",
         component: () => import("../views/purchases/PurchaseBillList.vue"),
+      },
+      // (新增) 采购账单详情
+      {
+        path: "purchases/bills/:guid",
+        name: "PurchaseBillDetail",
+        component: () => import("../views/purchases/PurchaseBillDetail.vue"),
       },
       {
         path: "purchases/bills/new",

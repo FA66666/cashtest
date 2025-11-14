@@ -19,11 +19,10 @@ const validateGUID = (fieldName) =>
 
 // --- 路由特定的验证器 ---
 
-// (已修改为步骤 7)
+// (已修改)
 const validateCreateSalesInvoice = [
   validateGUID("customer_guid"),
-  validateGUID("currency_guid"), // (新增) 必须选择发票货币
-  validateGUID("ar_account_guid"), // (重新添加) 必须选择 A/R 科目
+  validateGUID("currency_guid"), // (重新添加)
   body("date_opened")
     .isISO8601()
     .withMessage(
@@ -47,23 +46,24 @@ const validateCreateSalesInvoice = [
   handleValidationErrors,
 ];
 
-// (已修改为步骤 7)
+// (已修改)
 const validateCreatePurchaseBill = [
   validateGUID("vendor_guid"),
-  validateGUID("currency_guid"), // (新增) 必须选择账单货币
-  validateGUID("ap_account_guid"), // (重新添加) 必须选择 A/P 科目
+  validateGUID("currency_guid"), // (重新添加)
   body("date_opened")
     .isISO8601()
     .withMessage("date_opened must be a valid ISO 8601 datetime string"),
   body("line_items")
     .isArray({ min: 1 })
     .withMessage("line_items must be an array with at least one item"),
+  // (注意: asset_or_expense_account_guid 是在后端动态处理的, 但我们仍然验证它是否存在)
   validateGUID("line_items.*.asset_or_expense_account_guid"),
   handleValidationErrors,
 ];
 
 const validateAdjustInventory = [
-  validateGUID("stock_account_guid"),
+  validateGUID("commodity_guid"),
+  validateGUID("currency_guid"),
   validateGUID("adjustment_expense_account_guid"),
   body("quantity_change")
     .isFloat()
@@ -74,18 +74,36 @@ const validateAdjustInventory = [
   handleValidationErrors,
 ];
 
+// (已修改)
 const validateCustomer = [
   body("name").notEmpty().withMessage("Name is required"),
   body("id").notEmpty().withMessage("Customer ID is required"),
-  validateGUID("currency"),
+  // (移除) currency
   body("active").isBoolean().withMessage("Active must be true or false"),
   handleValidationErrors,
 ];
 
+// (已修改)
+const validateUpdateCustomer = [
+  body("name").notEmpty().withMessage("Name is required"),
+  body("id").notEmpty().withMessage("Customer ID is required"),
+  body("active").isBoolean().withMessage("Active must be true or false"),
+  handleValidationErrors,
+];
+
+// (已修改)
 const validateVendor = [
   body("name").notEmpty().withMessage("Name is required"),
   body("id").notEmpty().withMessage("Vendor ID is required"),
-  validateGUID("currency"),
+  // (移除) currency
+  body("active").isBoolean().withMessage("Active must be true or false"),
+  handleValidationErrors,
+];
+
+// (已修改)
+const validateUpdateVendor = [
+  body("name").notEmpty().withMessage("Name is required"),
+  body("id").notEmpty().withMessage("Vendor ID is required"),
   body("active").isBoolean().withMessage("Active must be true or false"),
   handleValidationErrors,
 ];
@@ -114,38 +132,29 @@ const validateJournalEntry = [
   body("splits.*.value")
     .isFloat()
     .withMessage("Each split value must be a number"),
-  body("splits").custom((splits) => {
-    const sum = splits.reduce((acc, split) => acc + (split.value || 0), 0);
-    if (Math.abs(sum) > 0.001) {
-      throw new Error(
-        "Journal entry does not balance. The sum of all splits must be zero."
-      );
-    }
-    return true;
-  }),
   handleValidationErrors,
 ];
 
-// (已修改为步骤 7)
+// (已修改)
 const validateCustomerPayment = [
   body("date").isISO8601().withMessage("Date is required"),
   body("description").notEmpty().withMessage("Description is required"),
   validateGUID("currency_guid"),
   validateGUID("checking_account_guid"),
-  validateGUID("ar_account_guid"), // (修改)
+  validateGUID("customer_guid"),
   body("amount")
     .isFloat({ gt: 0 })
     .withMessage("Amount must be greater than zero"),
   handleValidationErrors,
 ];
 
-// (已修改为步骤 7)
+// (已修改)
 const validateVendorPayment = [
   body("date").isISO8601().withMessage("Date is required"),
   body("description").notEmpty().withMessage("Description is required"),
   validateGUID("currency_guid"),
   validateGUID("checking_account_guid"),
-  validateGUID("ap_account_guid"), // (修改)
+  validateGUID("vendor_guid"),
   body("amount")
     .isFloat({ gt: 0 })
     .withMessage("Amount must be greater than zero"),
@@ -157,7 +166,9 @@ module.exports = {
   validateCreatePurchaseBill,
   validateAdjustInventory,
   validateCustomer,
+  validateUpdateCustomer,
   validateVendor,
+  validateUpdateVendor,
   validateAccount,
   validateJournalEntry,
   validateCustomerPayment,

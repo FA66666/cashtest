@@ -13,7 +13,8 @@
                     </div>
                     <div class="form-group">
                         <label for="currency">{{ $t('customers.currency') }}</label>
-                        <CurrencyPicker id="currency" v-model="entry.currency_guid" required />
+                        <CurrencyPicker id="currency" v-model="entry.currency_guid" required
+                            @currenciesLoaded="allCurrencies = $event" />
                     </div>
                     <div class="form-group full-width">
                         <label for="description">{{ $t('sales.description') }}</label>
@@ -39,7 +40,8 @@
                             <td>
                                 <AccountPicker v-model="split.account_guid"
                                     :accountTypes="['ASSET', 'LIABILITY', 'EQUITY', 'INCOME', 'EXPENSE', 'STOCK']"
-                                    placeholder="Select Account" required />
+                                    placeholder="Select Account" required @accountsLoaded="onAccountsLoaded"
+                                    :filterByCurrencyGuid="entry.currency_guid" />
                             </td>
                             <td>
                                 <input type="text" v-model="split.memo" placeholder="Optional memo">
@@ -65,13 +67,17 @@
             <div class="form-summary">
                 <div>
                     <h3>{{ $t('ledger.totals') }}:</h3>
-                    <h3 class="total-line">Debit: {{ formatCurrency(totalDebit) }}</h3>
-                    <h3 class="total-line">Credit: {{ formatCurrency(totalCredit) }}</h3>
+                    <h3 class="total-line">Debit: {{ formatCurrency(totalDebit, selectedCurrencyMnemonic) }}</h3>
+                    <h3 class="total-line">Credit: {{ formatCurrency(totalCredit, selectedCurrencyMnemonic) }}</h3>
                     <h3 :class="isBalanced ? 'balanced' : 'unbalanced'">
                         {{ isBalanced ? $t('ledger.balanced') : $t('ledger.unbalanced') }}
                     </h3>
+                    <h3 v-if="isCurrencyMismatched" class="unbalanced">
+                        {{ $t('ledger.currency_mismatch') }}
+                    </h3>
                 </div>
-                <button type="submit" :disabled="isSubmitting || !isBalanced" class="btn-submit">
+                <button type="submit" :disabled="isSubmitting || !isBalanced || isCurrencyMismatched"
+                    class="btn-submit">
                     {{ isSubmitting ? $t('submitting') : $t('ledger.post_entry') }}
                 </button>
             </div>
@@ -80,10 +86,11 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed } from 'vue';
+// (修改) 导入 watch
+import { ref, reactive, computed, onMounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
-import { createJournalEntry } from '../../services/ledgerService';
+import { createJournalEntry, getAccounts } from '../../services/ledgerService';
 import { parseApiError } from '../../utils/errorHandler';
 import { formatCurrency, formatDateTimeForAPI } from '../../utils/formatters';
 import AccountPicker from '../../components/common/AccountPicker.vue';
@@ -97,6 +104,9 @@ const isSubmitting = ref(false);
 const apiError = ref(null);
 const getISODateTime = () => new Date().toISOString().slice(0, 16);
 
+const allAccounts = ref([]);
+const allCurrencies = ref([]);
+
 const entry = reactive({
     date: getISODateTime(),
     description: '',
@@ -107,9 +117,68 @@ const entry = reactive({
     ]
 });
 
+async function onAccountsLoaded(accountsData) {
+    if (allAccounts.value.length === 0) {
+        allAccounts.value = accountsData;
+    }
+}
+onMounted(async () => {
+    try {
+        if (allAccounts.value.length === 0) {
+            const response = await getAccounts();
+            allAccounts.value = response.data;
+        }
+    } catch (e) {
+        console.error("Failed to preload accounts:", e);
+    }
+});
+
+
+// --- 计算属性 ---
+
 const totalDebit = computed(() => entry.splits.reduce((sum, s) => sum + (s.debit || 0), 0));
 const totalCredit = computed(() => entry.splits.reduce((sum, s) => sum + (s.credit || 0), 0));
 const isBalanced = computed(() => Math.abs(totalDebit.value - totalCredit.value) < 0.001 && totalDebit.value > 0);
+
+const selectedCurrencyMnemonic = computed(() => {
+    if (!entry.currency_guid || allCurrencies.value.length === 0) {
+        return 'USD';
+    }
+    const currency = allCurrencies.value.find(c => c.guid === entry.currency_guid);
+    return currency ? currency.mnemonic : 'USD';
+});
+
+const isCurrencyMismatched = computed(() => {
+    if (!entry.currency_guid || allAccounts.value.length === 0) {
+        return false;
+    }
+    for (const split of entry.splits) {
+        if (split.account_guid) {
+            const account = allAccounts.value.find(a => a.guid === split.account_guid);
+            if (account && account.commodity_guid !== entry.currency_guid) {
+                return true;
+            }
+        }
+    }
+    return false;
+});
+
+// --- (新增) 侦听器 ---
+watch(() => entry.currency_guid, (newCurrency, oldCurrency) => {
+    if (newCurrency !== oldCurrency && oldCurrency) { // 仅在货币 *更改* 时触发
+        apiError.value = t('ledger.accounts_reset'); // 通知用户
+        // 重置所有分录
+        entry.splits.forEach(split => {
+            split.account_guid = '';
+            split.debit = 0;
+            split.credit = 0;
+            split.value = 0;
+        });
+    }
+});
+
+
+// --- 方法 ---
 
 const addLineItem = () => {
     entry.splits.push({ account_guid: '', memo: '', debit: 0, credit: 0, value: 0 });
@@ -121,8 +190,6 @@ const removeLineItem = (index) => {
     }
 };
 
-// 确保用户不能同时输入借方和贷方
-// 并设置 'value' (借方为正, 贷方为负)
 const updateSplit = (type, index) => {
     const split = entry.splits[index];
     if (type === 'debit' && split.debit > 0) {
@@ -132,7 +199,6 @@ const updateSplit = (type, index) => {
         split.debit = 0;
         split.value = -split.credit; // Credits are negative
     } else {
-        // 如果都清零了
         split.value = 0;
         if (type === 'debit') split.debit = 0;
         if (type === 'credit') split.credit = 0;
@@ -148,13 +214,17 @@ const handleSubmit = async () => {
         isSubmitting.value = false;
         return;
     }
+    if (isCurrencyMismatched.value) {
+        apiError.value = t('ledger.currency_mismatch');
+        isSubmitting.value = false;
+        return;
+    }
 
     try {
         const apiPayload = {
             date: formatDateTimeForAPI(entry.date),
             description: entry.description,
             currency_guid: entry.currency_guid,
-            // 过滤掉 value 为 0 的行 (可选，但推荐)
             splits: entry.splits
                 .filter(s => s.value !== 0)
                 .map(s => ({
@@ -164,7 +234,6 @@ const handleSubmit = async () => {
                 }))
         };
 
-        // 再次检查，过滤后可能少于2行
         if (apiPayload.splits.length < 2) {
             throw new Error(t('ledger.must_have_splits'));
         }

@@ -5,7 +5,8 @@ const { isAuthenticated, hasRole } = require("../middleware/auth");
 const {
   validateCreatePurchaseBill,
   validateVendor,
-  validateVendorPayment, // (新增)
+  validateUpdateVendor, // (新增)
+  validateVendorPayment,
 } = require("../middleware/validators");
 
 // 所有 /purchases 路由都需要认证
@@ -23,7 +24,7 @@ router.post(
 router.put(
   "/vendors/:guid",
   hasRole(["admin"]),
-  validateVendor,
+  validateUpdateVendor, // (修改)
   purchaseController.updateVendor
 );
 router.delete(
@@ -34,6 +35,8 @@ router.delete(
 
 // --- 采购账单 (Purchase Bills) ---
 router.get("/bills", purchaseController.getPurchaseBills);
+// (新增)
+router.get("/bills/:guid", purchaseController.getPurchaseBillDetails);
 router.post(
   "/bills",
   validateCreatePurchaseBill,

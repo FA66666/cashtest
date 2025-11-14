@@ -21,6 +21,8 @@
                     <th>{{ $t('inventory.item_name') }}</th>
                     <th>{{ $t('inventory.mnemonic') }} (SKU)</th>
                     <th>{{ $t('inventory.stock_level') }}</th>
+                    <th>{{ $t('inventory.valuation_currency') }}</th>
+                    <th>{{ $t('inventory.total_value') }}</th>
                 </tr>
             </thead>
             <tbody>
@@ -28,6 +30,8 @@
                     <td>{{ item.fullname }}</td>
                     <td>{{ item.mnemonic }}</td>
                     <td>{{ item.stock_level }}</td>
+                    <td>{{ item.currency_code }}</td>
+                    <td>{{ formatCurrency(item.total_value, item.currency_code) }}</td>
                 </tr>
             </tbody>
         </table>
@@ -43,6 +47,8 @@ import { ref, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { getStockItems, getStockLevel } from '../../services/inventoryService';
 import { parseApiError } from '../../utils/errorHandler';
+// (新增) 导入 formatCurrency
+import { formatCurrency } from '../../utils/formatters';
 
 const { t } = useI18n();
 const stockList = ref([]);
@@ -61,15 +67,20 @@ onMounted(async () => {
         const levelPromises = items.map(async (item) => {
             try {
                 const levelResponse = await getStockLevel(item.guid);
+                // (修改) 扩展返回的数据
                 return {
                     ...item,
-                    stock_level: levelResponse.data.stock_level
+                    stock_level: levelResponse.data.stock_level,
+                    total_value: levelResponse.data.total_value,
+                    currency_code: levelResponse.data.currency_code
                 };
             } catch (err) {
                 // 如果单个商品库存账户未找到, 返回 0
                 return {
                     ...item,
-                    stock_level: 0
+                    stock_level: 0,
+                    total_value: 0,
+                    currency_code: 'N/A'
                 };
             }
         });

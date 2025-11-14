@@ -22,7 +22,8 @@
                     <div class="form-group">
                         <label for="checking_account">{{ $t('purchases.checking_account') }}</label>
                         <AccountPicker id="checking_account" v-model="payment.checking_account_guid"
-                            accountTypes="ASSET" placeholder="Select Bank/Checking Account" required />
+                            accountTypes="ASSET" placeholder="Select Bank/Checking Account" required
+                            :filterByCurrencyGuid="payment.currency_guid" />
                     </div>
 
                     <div class="form-group">
@@ -47,7 +48,8 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue';
+// (修改) 导入 watch
+import { ref, reactive, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { createVendorPayment } from '../../services/purchaseService';
@@ -56,7 +58,7 @@ import { formatDateTimeForAPI } from '../../utils/formatters';
 import AccountPicker from '../../components/common/AccountPicker.vue';
 import CurrencyPicker from '../../components/common/CurrencyPicker.vue';
 import FormError from '../../components/common/FormError.vue';
-import VendorPicker from '../../components/common/VendorPicker.vue'; // (新增)
+import VendorPicker from '../../components/common/VendorPicker.vue';
 
 const { t } = useI18n();
 const router = useRouter();
@@ -71,9 +73,15 @@ const payment = reactive({
     description: 'Vendor Payment',
     currency_guid: '',
     checking_account_guid: '',
-    vendor_guid: '', // <-- (新增)
-    // ap_account_guid: '', // <-- (已移除)
+    vendor_guid: '',
     amount: 0
+});
+
+// (新增) 侦听货币变化，重置银行账户
+watch(() => payment.currency_guid, (newCurrency, oldCurrency) => {
+    if (newCurrency !== oldCurrency) {
+        payment.checking_account_guid = '';
+    }
 });
 
 const handleSubmit = async () => {
@@ -87,7 +95,7 @@ const handleSubmit = async () => {
             description: payment.description,
             currency_guid: payment.currency_guid,
             checking_account_guid: payment.checking_account_guid,
-            vendor_guid: payment.vendor_guid, // <-- (新增)
+            vendor_guid: payment.vendor_guid,
             amount: payment.amount
         };
 

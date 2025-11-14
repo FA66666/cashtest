@@ -33,7 +33,8 @@
     "logout": "登出"
   },
   "dashboard": {
-    "welcome": "欢迎来到您的仪表盘"
+    "welcome": "欢迎来到您的仪表盘",
+    "quick_actions": "快捷操作"
   },
   "customers": {
     "create": "新客户",

@@ -164,7 +164,8 @@
     "valuation_help": "This determines the currency your item's value will be tracked in.",
     "summary_by_currency": "Summary by Currency",
     "ledger_stream": "Ledger / Stream",
-    "value_change": "Value Change"
+    "value_change": "Value Change",
+    "view_details": "View Details"
   },
   "reports": {
     "trial_balance": "Trial Balance",

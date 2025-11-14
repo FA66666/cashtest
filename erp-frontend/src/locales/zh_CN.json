@@ -164,7 +164,8 @@
     "valuation_help": "这将决定您的商品价值以哪种货币进行跟踪。",
     "summary_by_currency": "按货币汇总",
     "ledger_stream": "详细流水",
-    "value_change": "价值变动"
+    "value_change": "价值变动",
+    "view_details": "查看库存详情"
   },
   "reports": {
     "trial_balance": "试算平衡表",

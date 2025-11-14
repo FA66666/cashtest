@@ -29,19 +29,24 @@
                     <th>{{ $t('inventory.stock_level') }}</th>
                     <th>{{ $t('inventory.valuation_currency') }}</th>
                     <th>{{ $t('inventory.total_value') }}</th>
+                    <th>{{ $t('vendors.actions') }}</th>
                 </tr>
             </thead>
             <tbody>
                 <tr v-for="item in stockList" :key="item.guid">
                     <td>
-                        <router-link :to="{ name: 'InventoryItemDetail', params: { commodity_guid: item.guid } }">
-                            {{ item.fullname }}
-                        </router-link>
+                        {{ item.fullname }}
                     </td>
                     <td>{{ item.mnemonic }}</td>
                     <td>{{ item.stock_level }}</td>
                     <td>{{ item.currency_code }}</td>
                     <td>{{ formatCurrency(item.total_value, item.currency_code) }}</td>
+                    <td>
+                        <router-link :to="{ name: 'InventoryItemDetail', params: { commodity_guid: item.guid } }"
+                            class="btn-edit">
+                            {{ $t('inventory.view_details') }}
+                        </router-link>
+                    </td>
                 </tr>
             </tbody>
         </table>

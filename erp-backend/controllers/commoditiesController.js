@@ -1,8 +1,8 @@
 const db = require("../config/db");
+const { generateGuid } = require("../utils/guidHelper");
 
 exports.getCurrencies = async (req, res, next) => {
   try {
-    // 货币在 GnuCash 中是 'CURRENCY' 命名空间下的商品
     const sql =
       "SELECT guid, mnemonic, fullname FROM commodities WHERE namespace = 'CURRENCY'";
     const currencies = await db.query(sql);
@@ -14,10 +14,8 @@ exports.getCurrencies = async (req, res, next) => {
 
 exports.getPrice = async (req, res, next) => {
   try {
-    // 示例: ?from_guid=...&to_guid=... (例如 USD -> CNY)
     const { from_guid, to_guid } = req.query;
 
-    // 查询最新汇率
     const sql = `
       SELECT value_num, value_denom 
       FROM prices 
@@ -25,15 +23,12 @@ exports.getPrice = async (req, res, next) => {
       ORDER BY date DESC 
       LIMIT 1
     `;
-    // GnuCash 存储 A->B 的价格。如果查询 B->A，可能需要反转
-    // 为简化，我们只查询 A->B
     const price = await db.query(sql, [from_guid, to_guid]);
 
     if (price.length === 0) {
       return res.status(404).json({ message: "Price not found" });
     }
 
-    // value_num 和 value_denom 是分数
     res.json({
       rate: parseFloat(price[0].value_num) / parseFloat(price[0].value_denom),
     });
@@ -42,14 +37,72 @@ exports.getPrice = async (req, res, next) => {
   }
 };
 
+// (已修改)
 exports.getStockItems = async (req, res, next) => {
   try {
-    // 库存商品通常在 'TEMPLATE' 命名空间或自定义命名空间
+    // (修改) 移除所有 JOIN，只返回唯一的商品
     const sql =
-      "SELECT guid, mnemonic, fullname FROM commodities WHERE namespace = 'TEMPLATE'"; // 假设
+      "SELECT guid, mnemonic, fullname FROM commodities WHERE namespace = 'TEMPLATE'";
     const items = await db.query(sql);
     res.json(items);
   } catch (err) {
     next(err);
+  }
+};
+
+exports.createStockItem = async (req, res, next) => {
+  const connection = await db.getConnection();
+  try {
+    const {
+      mnemonic, // SKU
+      fullname, // 商品名称
+      parent_inventory_account_guid, // 选中的父库存账户 (例如 '1301 - Inventory (CNY)')
+    } = req.body;
+
+    await connection.beginTransaction();
+
+    // 1. 创建商品 (Commodity)
+    const commodity_guid = generateGuid();
+    const commoditySql = `
+      INSERT INTO commodities (guid, namespace, mnemonic, fullname, fraction, quote_flag)
+      VALUES (?, 'TEMPLATE', ?, ?, 100, 0)
+    `;
+    await connection.execute(commoditySql, [
+      commodity_guid,
+      mnemonic,
+      fullname,
+    ]);
+
+    // 2. 创建关联的 STOCK 账户
+    const stock_account_guid = generateGuid();
+    const accountSql = `
+      INSERT INTO accounts (guid, name, account_type, commodity_guid, commodity_scu, non_std_scu, 
+                            parent_guid, code, description, hidden, placeholder)
+      VALUES (?, ?, 'STOCK', ?, 100, 0, ?, ?, ?, 0, 0)
+    `;
+    await connection.execute(accountSql, [
+      stock_account_guid,
+      `Inventory - ${fullname}`, // 账户名称
+      commodity_guid,
+      parent_inventory_account_guid,
+      "", // Code (可选)
+      `Tracks ${mnemonic} quantity`,
+    ]);
+
+    await connection.commit();
+
+    res.status(201).json({
+      commodity_guid: commodity_guid,
+      stock_account_guid: stock_account_guid,
+      message: "Stock item created successfully.",
+    });
+  } catch (err) {
+    await connection.rollback();
+    if (err.code === "ER_DUP_ENTRY") {
+      return res.status(409).json({ error: "SKU (mnemonic) already exists" });
+    }
+    next(err);
+  } finally {
+    connection.release();
   }
 };

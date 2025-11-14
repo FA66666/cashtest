@@ -48,7 +48,6 @@
 </template>
 
 <script setup>
-// (修改) 导入 watch
 import { ref, reactive, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
@@ -67,7 +66,6 @@ const isSubmitting = ref(false);
 const apiError = ref(null);
 const getISODateTime = () => new Date().toISOString().slice(0, 16);
 
-// (已修改)
 const payment = reactive({
     date: getISODateTime(),
     description: 'Vendor Payment',
@@ -89,7 +87,6 @@ const handleSubmit = async () => {
     apiError.value = null;
 
     try {
-        // (已修改)
         const apiPayload = {
             date: formatDateTimeForAPI(payment.date),
             description: payment.description,

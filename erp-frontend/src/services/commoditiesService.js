@@ -4,3 +4,8 @@ import apiClient from "./api";
 export const getCurrencies = () => {
   return apiClient.get("/commodities/currencies");
 };
+
+// (新增) 创建库存商品
+export const createStockItem = (itemData) => {
+  return apiClient.post("/commodities/stock-items", itemData);
+};

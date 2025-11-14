@@ -17,7 +17,7 @@ CREATE TABLE users (
 
 CREATE TABLE customers (
     guid CHAR(32) PRIMARY KEY NOT NULL,
-    ar_account_guid CHAR(32), -- (用于 步骤 3: 子分类账)
+    -- (已移除) ar_account_guid CHAR(32),
     name TEXT NOT NULL,
     id TEXT NOT NULL,
     notes TEXT NOT NULL,
@@ -26,7 +26,7 @@ CREATE TABLE customers (
     discount_denom BIGINT NOT NULL,
     credit_num BIGINT NOT NULL,
     credit_denom BIGINT NOT NULL,
-    currency CHAR(32) NOT NULL,
+    -- (已移除) currency CHAR(32) NOT NULL,
     tax_override INT NOT NULL,
     addr_name TEXT,
     addr_addr1 TEXT,
@@ -51,11 +51,11 @@ CREATE TABLE customers (
 
 CREATE TABLE vendors (
     guid CHAR(32) PRIMARY KEY NOT NULL,
-    ap_account_guid CHAR(32), -- (用于 步骤 3: 子分类账)
+    -- (已移除) ap_account_guid CHAR(32),
     name TEXT NOT NULL,
     id TEXT NOT NULL,
     notes TEXT NOT NULL,
-    currency CHAR(32) NOT NULL,
+    -- (已移除) currency CHAR(32) NOT NULL,
     active INT NOT NULL,
     tax_override INT NOT NULL,
     addr_name TEXT,
@@ -343,7 +343,6 @@ CREATE TABLE taxtable_entries (
 
 -- ----------------------------
 -- 步骤 4: 插入基础数据 (货币和科目)
--- (已更新为支持 COGS 和 子分类账)
 -- ----------------------------
 
 -- 货币 (Currencies) 和 商品 (Commodities)
@@ -352,35 +351,69 @@ VALUES
     ('ade56487e45e41219b5810c14b76c11d', 'CURRENCY', 'USD', 'US Dollar', NULL, 100, 1, NULL, NULL),
     ('f4b3e81a3d3e4ed8b46a7c06f8c4c7b8', 'CURRENCY', 'CNY', 'Chinese Yuan', NULL, 100, 1, NULL, NULL),
     ('8e7f1a8f9d6f4c8e9b6c1e5d7f6a5b4c', 'CURRENCY', 'EUR', 'Euro', NULL, 100, 1, NULL, NULL),
-    ('9a8f7c6e5d4b3c2a1b9e8f7a6b5c4d3e', 'CURRENCY', 'JPY', 'Japanese Yen', NULL, 100, 1, NULL, NULL),
+    ('9a8f7c6e5d4b3c2a1b9e8f7a6b5c4d3e', 'CURRENCY', 'JPY', 'Japanese Yen', NULL, 1, 1, NULL, NULL), 
     
-    -- (已修正) "w000..." 已改为 "f000..." (f 是有效的十六进制)
-    ('f0000000000000000000000000000001', 'TEMPLATE', 'WIDGET-001', 'Standard Widget', NULL, 100, 0, NULL, NULL);
+    ('f0000000000000000000000000000001', 'TEMPLATE', 'WIDGET-001', 'Standard Widget', NULL, 100, 0, NULL, NULL),
+    ('f0000000000000000000000000000002', 'TEMPLATE', 'GADGET-002', 'Premium Gadget', NULL, 100, 0, NULL, NULL);
 
--- (已修改) 会计科目表 (Accounts)
+-- 会计科目表 (Accounts)
 INSERT INTO accounts (guid, name, account_type, commodity_guid, commodity_scu, non_std_scu, parent_guid, code, description, hidden, placeholder)
 VALUES
     -- 顶层占位符
-    ('a0000000000000000000000000000001', 'Assets', 'ASSET', 'ade56487e45e41219b5810c14b76c11d', 100, 0, NULL, '1', NULL, 0, 1),
-    ('a0000000000000000000000000000002', 'Liabilities', 'LIABILITY', 'ade56487e45e41219b5810c14b76c11d', 100, 0, NULL, '2', NULL, 0, 1),
-    ('a0000000000000000000000000000003', 'Income', 'INCOME', 'ade56487e45e41219b5810c14b76c11d', 100, 0, NULL, '4', NULL, 0, 1),
-    ('a0000000000000000000000000000004', 'Expenses', 'EXPENSE', 'ade56487e45e41219b5810c14b76c11d', 100, 0, NULL, '5', NULL, 0, 1),
+    ('a0000000000000000000000000000001', 'Assets', 'ASSET', 'ade56487e45e41219b5810c14b76c11d', 100, 0, NULL, '1', 'Root Asset Account', 0, 1),
+    ('a0000000000000000000000000000002', 'Liabilities', 'LIABILITY', 'ade56487e45e41219b5810c14b76c11d', 100, 0, NULL, '2', 'Root Liability Account', 0, 1),
+    ('a0000000000000000000000000000003', 'Income', 'INCOME', 'ade56487e45e41219b5810c14b76c11d', 100, 0, NULL, '4', 'Root Income Account', 0, 1),
+    ('a0000000000000000000000000000004', 'Expenses', 'EXPENSE', 'ade56487e45e41219b5810c14b76c11d', 100, 0, NULL, '5', 'Root Expense Account', 0, 1),
 
     -- 子级占位符 (用于 A/R 和 A/P)
     ('a0000000000000000000000000000005', 'Accounts Receivable', 'ASSET', 'ade56487e45e41219b5810c14b76c11d', 100, 0, 'a0000000000000000000000000000001', '1200', 'Parent account for all customer A/R', 0, 1),
     ('a0000000000000000000000000000006', 'Accounts Payable', 'LIABILITY', 'ade56487e45e41219b5810c14b76c11d', 100, 0, 'a0000000000000000000000000000002', '2000', 'Parent account for all vendor A/P', 0, 1),
     
-    -- (新增) 库存总占位符
-    ('a0000000000000000000000000000007', 'Inventory', 'ASSET', 'ade56487e45e41219b5810c14b76c11d', 100, 0, 'a0000000000000000000000000000001', '1300', 'Parent account for all stock assets', 0, 1),
+    -- (修改) 库存总占位符 (现在有多个)
+    ('a0000000000000000000000000000007', 'Inventory (USD)', 'ASSET', 'ade56487e45e41219b5810c14b76c11d', 100, 0, 'a0000000000000000000000000000001', '1300', 'Parent account for all USD stock assets', 0, 1),
+    ('a0000000000000000000000000000023', 'Inventory (CNY)', 'ASSET', 'f4b3e81a3d3e4ed8b46a7c06f8c4c7b8', 100, 0, 'a0000000000000000000000000000001', '1301', 'Parent account for all CNY stock assets', 0, 1),
 
     -- 可用的子账户 (Placeholder = 0)
     ('b0000000000000000000000000000001', 'Checking Account (USD)', 'ASSET', 'ade56487e45e41219b5810c14b76c11d', 100, 0, 'a0000000000000000000000000000001', '1010', NULL, 0, 0),
-    ('b0000000000000000000000000000005', 'Product Sales', 'INCOME', 'ade56487e45e41219b5810c14b76c11d', 100, 0, 'a0000000000000000000000000000003', '4010', NULL, 0, 0),
-    ('b0000000000000000000000000000006', 'Office Supplies', 'EXPENSE', 'ade56487e45e41219b5810c14b76c11d', 100, 0, 'a0000000000000000000000000000004', '5010', NULL, 0, 0),
+    ('b0000000000000000000000000000002', 'Checking Account (CNY)', 'ASSET', 'f4b3e81a3d3e4ed8b46a7c06f8c4c7b8', 100, 0, 'a0000000000000000000000000000001', '1011', NULL, 0, 0),
+    ('b0000000000000000000000000000003', 'Checking Account (EUR)', 'ASSET', '8e7f1a8f9d6f4c8e9b6c1e5d7f6a5b4c', 100, 0, 'a0000000000000000000000000000001', '1012', NULL, 0, 0),
+    ('b0000000000000000000000000000004', 'Checking Account (JPY)', 'ASSET', '9a8f7c6e5d4b3c2a1b9e8f7a6b5c4d3e', 1, 0, 'a0000000000000000000000000000001', '1013', NULL, 0, 0),
+
+    ('b0000000000000000000000000000005', 'Product Sales (USD)', 'INCOME', 'ade56487e45e41219b5810c14b76c11d', 100, 0, 'a0000000000000000000000000000003', '4010', NULL, 0, 0),
+    ('b0000000000000000000000000000012', 'Product Sales (CNY)', 'INCOME', 'f4b3e81a3d3e4ed8b46a7c06f8c4c7b8', 100, 0, 'a0000000000000000000000000000003', '4011', NULL, 0, 0),
+    ('b0000000000000000000000000000014', 'Product Sales (EUR)', 'INCOME', '8e7f1a8f9d6f4c8e9b6c1e5d7f6a5b4c', 100, 0, 'a0000000000000000000000000000003', '4012', NULL, 0, 0),
+    ('b0000000000000000000000000000015', 'Product Sales (JPY)', 'INCOME', '9a8f7c6e5d4b3c2a1b9e8f7a6b5c4d3e', 1, 0, 'a0000000000000000000000000000003', '4013', NULL, 0, 0),
+
+    ('b0000000000000000000000000000006', 'Office Supplies (USD)', 'EXPENSE', 'ade56487e45e41219b5810c14b76c11d', 100, 0, 'a0000000000000000000000000000004', '5010', NULL, 0, 0),
+    ('b0000000000000000000000000000011', 'Office Supplies (CNY)', 'EXPENSE', 'f4b3e81a3d3e4ed8b46a7c06f8c4c7b8', 100, 0, 'a0000000000000000000000000000004', '5011', NULL, 0, 0),
+    ('b0000000000000000000000000000016', 'Office Supplies (EUR)', 'EXPENSE', '8e7f1a8f9d6f4c8e9b6c1e5d7f6a5b4c', 100, 0, 'a0000000000000000000000000000004', '5012', NULL, 0, 0),
+    ('b0000000000000000000000000000017', 'Office Supplies (JPY)', 'EXPENSE', '9a8f7c6e5d4b3c2a1b9e8f7a6b5c4d3e', 1, 0, 'a0000000000000000000000000000004', '5013', NULL, 0, 0),
+
+    ('b0000000000000000000000000000007', 'Cost of Goods Sold (USD)', 'EXPENSE', 'ade56487e45e41219b5810c14b76c11d', 100, 0, 'a0000000000000000000000000000004', '5020', NULL, 0, 0),
+    ('b0000000000000000000000000000022', 'Cost of Goods Sold (CNY)', 'EXPENSE', 'f4b3e81a3d3e4ed8b46a7c06f8c4c7b8', 100, 0, 'a0000000000000000000000000000004', '5021', NULL, 0, 0),
+    ('b0000000000000000000000000000018', 'Cost of Goods Sold (EUR)', 'EXPENSE', '8e7f1a8f9d6f4c8e9b6c1e5d7f6a5b4c', 100, 0, 'a0000000000000000000000000000004', '5022', NULL, 0, 0),
+    ('b0000000000000000000000000000019', 'Cost of Goods Sold (JPY)', 'EXPENSE', '9a8f7c6e5d4b3c2a1b9e8f7a6b5c4d3e', 1, 0, 'a0000000000000000000000000000004', '5023', NULL, 0, 0),
+
+    ('b0000000000000000000000000000009', 'Inventory Adjustment (USD)', 'EXPENSE', 'ade56487e45e41219b5810c14b76c11d', 100, 0, 'a0000000000000000000000000000004', '5030', 'Account for inventory write-downs (USD)', 0, 0),
+    ('b0000000000000000000000000000010', 'Inventory Adjustment (CNY)', 'EXPENSE', 'f4b3e81a3d3e4ed8b46a7c06f8c4c7b8', 100, 0, 'a0000000000000000000000000000004', '5031', 'Account for inventory write-downs (CNY)', 0, 0),
+    ('b0000000000000000000000000000020', 'Inventory Adjustment (EUR)', 'EXPENSE', '8e7f1a8f9d6f4c8e9b6c1e5d7f6a5b4c', 100, 0, 'a0000000000000000000000000000004', '5032', 'Account for inventory write-downs (EUR)', 0, 0),
+    ('b0000000000000000000000000000021', 'Inventory Adjustment (JPY)', 'EXPENSE', '9a8f7c6e5d4b3c2a1b9e8f7a6b5c4d3e', 1, 0, 'a0000000000000000000000000000004', '5033', 'Account for inventory write-downs (JPY)', 0, 0),
     
-    -- (新增) 销货成本 (COGS) 科目
-    ('b0000000000000000000000000000007', 'Cost of Goods Sold', 'EXPENSE', 'ade56487e45e41219b5810c14b76c11d', 100, 0, 'a0000000000000000000000000000004', '5020', NULL, 0, 0),
-    
-    -- (新增) 库存资产 (Stock Asset) 科目
-    -- (已修正) 'commodity_guid' 链接到 "f000..."
-    ('b0000000000000000000000000000008', 'Inventory - Widgets', 'STOCK', 'f0000000000000000000000000000001', 100, 0, 'a0000000000000000000000000000007', '1310', NULL, 0, 0);
+    -- (修改) 库存资产 (Stock Asset) 科目
+    ('b0000000000000000000000000000008', 'Inventory - Widgets (USD)', 'STOCK', 'f0000000000000000000000000000001', 100, 0, 'a0000000000000000000000000000007', '1310', 'Tracks WIDGET-001 quantity', 0, 0),
+    ('b0000000000000000000000000000013', 'Inventory - Gadgets (USD)', 'STOCK', 'f0000000000000000000000000000002', 100, 0, 'a0000000000000000000000000000007', '1311', 'Tracks GADGET-002 quantity', 0, 0);
+
+-- ----------------------------
+-- 步骤 5: (新增) 插入汇率
+-- ----------------------------
+INSERT INTO prices (guid, commodity_guid, currency_guid, date, source, type, value_num, value_denom)
+VALUES
+    ('p0000000000000000000000000000001', 'ade56487e45e41219b5810c14b76c11d', 'f4b3e81a3d3e4ed8b46a7c06f8c4c7b8', '2020-01-01 00:00:00', 'manual', 'last', 72500, 10000);
+
+INSERT INTO prices (guid, commodity_guid, currency_guid, date, source, type, value_num, value_denom)
+VALUES
+    ('p0000000000000000000000000000002', '8e7f1a8f9d6f4c8e9b6c1e5d7f6a5b4c', 'f4b3e81a3d3e4ed8b46a7c06f8c4c7b8', '2020-01-01 00:00:00', 'manual', 'last', 78000, 10000);
+
+INSERT INTO prices (guid, commodity_guid, currency_guid, date, source, type, value_num, value_denom)
+VALUES
+    ('p0000000000000000000000000000003', '9a8f7c6e5d4b3c2a1b9e8f7a6b5c4d3e', 'f4b3e81a3d3e4ed8b46a7c06f8c4c7b8', '2020-01-01 00:00:00', 'manual', 'last', 48, 1000);

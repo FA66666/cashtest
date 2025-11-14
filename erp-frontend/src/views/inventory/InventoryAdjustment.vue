@@ -11,7 +11,7 @@
                     <div class="form-group">
                         <label for="commodity">{{ $t('inventory.item_name') }}</label>
                         <CommodityPicker id="commodity" v-model="adjustment.commodity_guid"
-                            placeholder="Select Item to Adjust" required />
+                            placeholder="Select Item to Adjust" required @itemSelected="onItemSelected" />
                     </div>
 
                     <div class="form-group">
@@ -37,7 +37,7 @@
                         <label for="expense_account">{{ $t('inventory.adjustment_account') }}</label>
                         <AccountPicker id="expense_account" v-model="adjustment.adjustment_expense_account_guid"
                             accountTypes="EXPENSE" placeholder="Select Adjustment Account (must match currency)"
-                            required />
+                            required :filterByCurrencyGuid="adjustment.currency_guid" />
                     </div>
                     <div class="form-group full-width">
                         <label for="notes">{{ $t('inventory.notes') }}</label>
@@ -54,14 +54,14 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue';
+// (修改) 导入 watch
+import { ref, reactive, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { adjustInventory } from '../../services/inventoryService';
 import { parseApiError } from '../../utils/errorHandler';
 import AccountPicker from '../../components/common/AccountPicker.vue';
 import FormError from '../../components/common/FormError.vue';
-// (新增)
 import CommodityPicker from '../../components/common/CommodityPicker.vue';
 import CurrencyPicker from '../../components/common/CurrencyPicker.vue';
 
@@ -72,21 +72,33 @@ const isLoading = ref(false);
 const apiError = ref(null);
 
 const adjustment = reactive({
-    commodity_guid: '', // (修改)
-    currency_guid: '', // (新增)
+    commodity_guid: '',
+    currency_guid: '',
     adjustment_expense_account_guid: '',
     quantity_change: 0,
     cost_per_unit: 0,
     notes: ''
 });
 
+// (新增) 当商品被选中时，自动设置货币
+const onItemSelected = (item) => {
+    if (item && item.valuation_currency_guid) {
+        adjustment.currency_guid = item.valuation_currency_guid;
+    }
+};
+
+// (新增) 侦听货币变化，重置费用科目
+watch(() => adjustment.currency_guid, (newCurrency, oldCurrency) => {
+    if (newCurrency !== oldCurrency) {
+        adjustment.adjustment_expense_account_guid = '';
+    }
+});
+
 const handleSubmit = async () => {
     isLoading.value = true;
     apiError.value = null;
     try {
-        // apiPayload 现在与 reactive 'adjustment' 对象一致
         await adjustInventory(adjustment);
-        // TODO: 成功通知
         router.push({ name: 'Inventory' });
     } catch (err) {
         apiError.value = parseApiError(err);

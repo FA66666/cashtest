@@ -112,8 +112,6 @@
     "amount": "Amount",
     "checking_account": "Bank/Checking Account",
     "item": "Item",
-    "cost": "Cost",
-    "cogs_account": "COGS Account",
     "invoice_detail_title": "Invoice Details"
   },
   "purchases": {
@@ -157,7 +155,15 @@
     "submit_adjustment": "Submit Adjustment",
     "valuation_currency": "Valuation Currency",
     "total_value": "Total Value (CNY)",
-    "is_stock_item": "Is Stock Item?"
+    "is_stock_item": "Is Stock Item?",
+    "create_item": "Create New Item",
+    "create_item_btn": "Create Item",
+    "item_details": "Item Details",
+    "select_valuation_account": "Select Valuation Parent Account (e.g., Inventory (USD))",
+    "valuation_help": "This determines the currency your item's value will be tracked in.",
+    "summary_by_currency": "Summary by Currency",
+    "ledger_stream": "Ledger / Stream",
+    "value_change": "Value Change"
   },
   "reports": {
     "trial_balance": "Trial Balance",

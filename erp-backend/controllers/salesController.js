@@ -5,41 +5,39 @@ require("dotenv").config();
 const DENOMINATOR = 100;
 const PARENT_AR_ACCOUNT_GUID = "a0000000000000000000000000000005";
 
-// (新增) 辅助函数：动态查找或创建多币种A/R账户
+// (辅助函数) 动态查找或创建多币种A/R账户
 async function findOrCreateArAccount(connection, customer_guid, currency_guid) {
-  // 1. 获取客户名称和货币助记符
   const infoSql = `
     SELECT 
       c.name as customer_name, 
       com.mnemonic as currency_mnemonic
-    FROM customers c
-    JOIN commodities com ON com.guid = ?
-    WHERE c.guid = ?
+    FROM customers c, commodities com
+    WHERE com.guid = ?
+    AND c.guid = ?
   `;
-  const [info] = await connection.query(infoSql, [
+  const [infoRows] = await connection.query(infoSql, [
     currency_guid,
     customer_guid,
   ]);
+  const info = infoRows[0];
   if (!info) {
     throw new Error("Customer or Currency not found.");
   }
   const { customer_name, currency_mnemonic } = info;
 
-  // 2. 定义子账户名称
   const account_name = `A/R - ${customer_name} (${currency_mnemonic})`;
 
-  // 3. 尝试查找
   const findSql =
     "SELECT guid FROM accounts WHERE name = ? AND commodity_guid = ?";
-  const [existing] = await connection.query(findSql, [
+  const [existingRows] = await connection.query(findSql, [
     account_name,
     currency_guid,
   ]);
+  const existing = existingRows[0];
   if (existing) {
     return existing.guid;
   }
 
-  // 4. 如果未找到，则创建
   const guid = generateGuid();
   const createSql = `
     INSERT INTO accounts (guid, name, account_type, commodity_guid, parent_guid, code, placeholder, 
@@ -51,15 +49,62 @@ async function findOrCreateArAccount(connection, customer_guid, currency_guid) {
     account_name,
     currency_guid,
     PARENT_AR_ACCOUNT_GUID,
-    "", // A/R 子账户通常没有代码
+    "",
   ]);
   return guid;
 }
 
-// --- 客户 (Customers) ---
+// (辅助函数) 创建一个GnuCash交易
+async function createTransaction(connection, currency_guid, date, description) {
+  const tx_guid = generateGuid();
+  const txSql = `
+    INSERT INTO transactions (guid, currency_guid, num, post_date, enter_date, description)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `;
+  await connection.execute(txSql, [
+    tx_guid,
+    currency_guid,
+    "",
+    date,
+    new Date().toISOString().slice(0, 19).replace("T", " "),
+    description,
+  ]);
+  return tx_guid;
+}
+
+// (辅助函数) 创建一个GnuCash分录
+async function createSplit(
+  connection,
+  tx_guid,
+  account_guid,
+  memo,
+  action,
+  value_num,
+  quantity_num
+) {
+  const split_guid = generateGuid();
+  const splitSql = `
+      INSERT INTO splits (guid, tx_guid, account_guid, memo, action, reconcile_state, 
+                          value_num, value_denom, quantity_num, quantity_denom)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+  await connection.execute(splitSql, [
+    split_guid,
+    tx_guid,
+    account_guid,
+    memo || "",
+    action,
+    "n",
+    value_num,
+    DENOMINATOR,
+    quantity_num,
+    DENOMINATOR,
+  ]);
+}
+
+// ... (getAllCustomers, getCustomerByGuid, createCustomer, updateCustomer, deleteCustomer 保持不变) ...
 exports.getAllCustomers = async (req, res, next) => {
   try {
-    // (修改) 移除了 ar_account_guid 和 currency
     const customers = await db.query(
       "SELECT guid, name, id, active FROM customers"
     );
@@ -71,7 +116,6 @@ exports.getAllCustomers = async (req, res, next) => {
 exports.getCustomerByGuid = async (req, res, next) => {
   try {
     const { guid } = req.params;
-    // (修改) 移除了 ar_account_guid 和 currency
     const customer = await db.query(
       "SELECT guid, name, id, notes, active FROM customers WHERE guid = ?",
       [guid]
@@ -86,8 +130,6 @@ exports.getCustomerByGuid = async (req, res, next) => {
     next(err);
   }
 };
-
-// (已修改) 简化：不再创建A/R账户
 exports.createCustomer = async (req, res, next) => {
   try {
     const { name, id, notes, active } = req.body;
@@ -109,8 +151,6 @@ exports.createCustomer = async (req, res, next) => {
     next(err);
   }
 };
-
-// (已修改) 简化：不再更新A/R账户
 exports.updateCustomer = async (req, res, next) => {
   try {
     const { guid } = req.params;
@@ -133,10 +173,6 @@ exports.updateCustomer = async (req, res, next) => {
         .status(404)
         .json({ error: res.__("errors.customer_not_found") });
     }
-
-    // (TODO) 理想情况下，我们还应该更新所有关联的A/R子账户的名称
-    // 例如 "A/R - Old Name (USD)" -> "A/R - New Name (USD)"
-
     res.json({ guid, name, id, notes, active });
   } catch (err) {
     if (err.code === "ER_DUP_ENTRY") {
@@ -145,8 +181,6 @@ exports.updateCustomer = async (req, res, next) => {
     next(err);
   }
 };
-
-// (已修改) 简化：不再删除A/R账户
 exports.deleteCustomer = async (req, res, next) => {
   try {
     const { guid } = req.params;
@@ -160,10 +194,6 @@ exports.deleteCustomer = async (req, res, next) => {
           "Cannot delete customer: Invoices are associated with this customer.",
       });
     }
-
-    // (TODO) 理想情况下, 我们应该在这里删除所有关联的A/R子账户
-    // (例如 `DELETE FROM accounts WHERE name LIKE 'A/R - CustomerName (%)'`)
-    // 但这需要更复杂的检查（例如账户是否仍有余额）
 
     const result = await db.query("DELETE FROM customers WHERE guid = ?", [
       guid,
@@ -244,33 +274,38 @@ exports.getInvoiceDetails = async (req, res, next) => {
   }
 };
 
-// (已修改)
+// (已修改) 重构以自动处理 COGS 和成本
 exports.createSalesInvoice = async (req, res, next) => {
   const connection = await db.getConnection();
   try {
     const {
       customer_guid,
-      currency_guid, // (新增)
+      currency_guid, // 销售货币
       date_opened,
       notes,
       line_items,
-      cogs_account_guid,
     } = req.body;
 
-    let total_value_num = 0;
+    let total_sales_value_num = 0;
 
     await connection.beginTransaction();
 
-    // (新增) 动态查找/创建A/R账户
+    // 1. 查找/创建应收账款(A/R)账户
     const ar_account_guid = await findOrCreateArAccount(
       connection,
       customer_guid,
       currency_guid
     );
 
-    const invoice_guid = generateGuid();
-    const tx_guid = generateGuid();
+    // 2. 创建销售交易 (Transaction 1)
+    const sales_tx_guid = await createTransaction(
+      connection,
+      currency_guid,
+      date_opened,
+      notes || `Sales Invoice`
+    );
 
+    const invoice_guid = generateGuid();
     const invoiceSql = `
       INSERT INTO invoices (guid, id, date_opened, date_posted, notes, active, currency, owner_type, owner_guid, post_txn)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -282,30 +317,11 @@ exports.createSalesInvoice = async (req, res, next) => {
       date_opened,
       notes || "",
       1,
-      currency_guid, // (修改)
+      currency_guid,
       1,
       customer_guid,
-      tx_guid,
+      sales_tx_guid, // (重要) 链接到销售交易
     ]);
-
-    const txSql = `
-      INSERT INTO transactions (guid, currency_guid, num, post_date, enter_date, description)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `;
-    await connection.execute(txSql, [
-      tx_guid,
-      currency_guid, // (修改)
-      "",
-      date_opened,
-      new Date().toISOString().slice(0, 19).replace("T", " "),
-      notes || `Sales Invoice ${invoice_guid}`,
-    ]);
-
-    const splitSql = `
-      INSERT INTO splits (guid, tx_guid, account_guid, memo, action, reconcile_state, 
-                          value_num, value_denom, quantity_num, quantity_denom)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `;
 
     const entrySql = `
         INSERT INTO entries (guid, date, description, i_acct, quantity_num, quantity_denom, i_price_num, i_price_denom, invoice)
@@ -316,73 +332,29 @@ exports.createSalesInvoice = async (req, res, next) => {
       .slice(0, 19)
       .replace(/[-T:]/g, "");
 
+    // (新增) 用于存储按货币分组的成本
+    const cogs_map = new Map();
+
+    // 3. 循环行项目, 创建收入分录并计算成本
     for (const item of line_items) {
-      // --- 分录 1：记录收入 (贷方) ---
-      const item_value_num = Math.round(
+      // --- 3a. 处理销售/收入 (交易 1) ---
+      const item_sales_value_num = Math.round(
         item.quantity * item.price * DENOMINATOR
       );
-      total_value_num += item_value_num;
+      total_sales_value_num += item_sales_value_num;
 
-      const credit_split_guid = generateGuid();
-      await connection.execute(splitSql, [
-        credit_split_guid,
-        tx_guid,
+      // 贷 (Credit): 收入科目 (以销售货币)
+      await createSplit(
+        connection,
+        sales_tx_guid,
         item.income_account_guid,
         item.description,
         "Invoice",
-        "n",
-        -item_value_num,
-        DENOMINATOR,
-        -item_value_num,
-        DENOMINATOR,
-      ]);
+        -item_sales_value_num,
+        -item_sales_value_num
+      );
 
-      // --- 分录 2, 3, 4：记录 COGS ---
-      const stockAccountSql = `SELECT guid FROM accounts WHERE commodity_guid = ? AND account_type = 'STOCK' LIMIT 1`;
-      const [stockAccountRows] = await connection.execute(stockAccountSql, [
-        item.commodity_guid,
-      ]);
-
-      if (stockAccountRows.length === 0) {
-        throw new Error(
-          `No STOCK account found for commodity GUID: ${item.commodity_guid}`
-        );
-      }
-      const inventory_account_guid = stockAccountRows[0].guid;
-
-      const item_cost_num = Math.round(item.quantity * item.cost * DENOMINATOR);
-
-      const debit_cogs_guid = generateGuid();
-      await connection.execute(splitSql, [
-        debit_cogs_guid,
-        tx_guid,
-        cogs_account_guid,
-        `COGS for ${item.description || "item"}`,
-        "Invoice",
-        "n",
-        item_cost_num,
-        DENOMINATOR,
-        item_cost_num,
-        DENOMINATOR,
-      ]);
-
-      const credit_inv_guid = generateGuid();
       const item_quantity_num = Math.round(item.quantity * DENOMINATOR);
-
-      await connection.execute(splitSql, [
-        credit_inv_guid,
-        tx_guid,
-        inventory_account_guid,
-        `Sale of ${item.description || "item"}`,
-        "Invoice",
-        "n",
-        -item_cost_num,
-        DENOMINATOR,
-        -item_quantity_num,
-        DENOMINATOR,
-      ]);
-
-      // 5. (可选) 插入 Entries 表
       const entry_guid = generateGuid();
       await connection.execute(entrySql, [
         entry_guid,
@@ -395,29 +367,120 @@ exports.createSalesInvoice = async (req, res, next) => {
         DENOMINATOR,
         invoice_guid,
       ]);
+
+      // --- 3b. (新增) 计算成本和COGS ---
+
+      // 查找库存账户
+      const stockSql = `SELECT guid, parent_guid FROM accounts WHERE commodity_guid = ? AND account_type = 'STOCK' LIMIT 1`;
+      const [stock_acct] = await connection.query(stockSql, [
+        item.commodity_guid,
+      ]);
+      if (!stock_acct) {
+        throw new Error(
+          `No STOCK account found for commodity: ${item.commodity_guid}`
+        );
+      }
+
+      // 查找库存的记账货币 (通过其父账户)
+      const parentSql = `SELECT commodity_guid FROM accounts WHERE guid = ? LIMIT 1`;
+      const [parent_acct] = await connection.query(parentSql, [
+        stock_acct.parent_guid,
+      ]);
+      const cost_currency_guid = parent_acct.commodity_guid;
+
+      // 查找此货币对应的 COGS 账户
+      const cogsSql = `SELECT guid FROM accounts WHERE account_type = 'EXPENSE' AND commodity_guid = ? AND name LIKE 'Cost of Goods Sold%' LIMIT 1`;
+      const [cogs_acct] = await connection.query(cogsSql, [cost_currency_guid]);
+      if (!cogs_acct) {
+        throw new Error(
+          `No COGS account found for currency: ${cost_currency_guid}`
+        );
+      }
+
+      // 计算平均成本
+      const costSql = `SELECT SUM(quantity_num / quantity_denom) AS stock_level, SUM(value_num / value_denom) AS total_value FROM splits WHERE account_guid = ?`;
+      const [cost_data] = await connection.query(costSql, [stock_acct.guid]);
+
+      let average_cost = 0;
+      if (cost_data && cost_data.stock_level > 0) {
+        average_cost = cost_data.total_value / cost_data.stock_level;
+      }
+
+      const item_cost_value_num = Math.round(
+        item.quantity * average_cost * DENOMINATOR
+      );
+
+      // 将成本按货币分组
+      if (!cogs_map.has(cost_currency_guid)) {
+        cogs_map.set(cost_currency_guid, []);
+      }
+      cogs_map.get(cost_currency_guid).push({
+        stock_account_guid: stock_acct.guid,
+        cogs_account_guid: cogs_acct.guid,
+        quantity_num: -item_quantity_num,
+        value_num: -item_cost_value_num, // 贷方 (Credit)
+      });
     }
 
-    // (已修改) A. 借 (Debit): A/R 科目来自动态查找
-    const debit_ar_guid = generateGuid();
-    await connection.execute(splitSql, [
-      debit_ar_guid,
-      tx_guid,
-      ar_account_guid, // (修改)
+    // 4. 创建 A/R 借方分录 (交易 1)
+    // 借 (Debit): 应收账款 (以销售货币)
+    await createSplit(
+      connection,
+      sales_tx_guid,
+      ar_account_guid,
       "Sales",
       "Invoice",
-      "n",
-      total_value_num,
-      DENOMINATOR,
-      total_value_num,
-      DENOMINATOR,
-    ]);
+      total_sales_value_num,
+      total_sales_value_num
+    );
+
+    // 5. (新增) 循环 COGS 分组, 创建成本交易 (Transaction 2, 3...)
+    for (const [cost_currency_guid, splits_data] of cogs_map.entries()) {
+      const cogs_tx_guid = await createTransaction(
+        connection,
+        cost_currency_guid,
+        date_opened,
+        `COGS for Invoice ${invoice_guid}`
+      );
+
+      let total_cogs_value_num = 0;
+
+      for (const split_data of splits_data) {
+        // 贷 (Credit): 库存
+        await createSplit(
+          connection,
+          cogs_tx_guid,
+          split_data.stock_account_guid,
+          "COGS",
+          "Invoice",
+          split_data.value_num, // 负数
+          split_data.quantity_num // 负数
+        );
+
+        // 借 (Debit): COGS
+        await createSplit(
+          connection,
+          cogs_tx_guid,
+          split_data.cogs_account_guid,
+          "COGS",
+          "Invoice",
+          -split_data.value_num, // 变为正数
+          -split_data.value_num // Qty = Value
+        );
+
+        total_cogs_value_num += split_data.value_num;
+      }
+
+      // (注意: GnuCash 实际上会为每个 COGS 科目创建一个总借方,
+      // 但我们上面的逐行借贷在会计上是平衡且等效的)
+    }
 
     await connection.commit();
 
     res.status(201).json({
       message: res.__("messages.invoice_created"),
       invoice_guid: invoice_guid,
-      transaction_guid: tx_guid,
+      transaction_guid: sales_tx_guid,
     });
   } catch (err) {
     await connection.rollback();
@@ -428,7 +491,6 @@ exports.createSalesInvoice = async (req, res, next) => {
 };
 
 // --- 客户付款 (Customer Payments) ---
-// (已修改)
 exports.createCustomerPayment = async (req, res, next) => {
   const connection = await db.getConnection();
   try {
@@ -437,11 +499,10 @@ exports.createCustomerPayment = async (req, res, next) => {
       description,
       currency_guid,
       checking_account_guid,
-      customer_guid, // (修改)
+      customer_guid,
       amount,
     } = req.body;
 
-    // (新增) 动态查找/创建A/R账户
     const ar_account_guid = await findOrCreateArAccount(
       connection,
       customer_guid,
@@ -450,57 +511,36 @@ exports.createCustomerPayment = async (req, res, next) => {
 
     await connection.beginTransaction();
 
-    const tx_guid = generateGuid();
-    const txSql = `
-      INSERT INTO transactions (guid, currency_guid, num, post_date, enter_date, description)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `;
-    await connection.execute(txSql, [
-      tx_guid,
+    const tx_guid = await createTransaction(
+      connection,
       currency_guid,
-      "",
       date,
-      new Date().toISOString().slice(0, 19).replace("T", " "),
-      description,
-    ]);
-
-    const splitSql = `
-      INSERT INTO splits (guid, tx_guid, account_guid, memo, action, reconcile_state, 
-                          value_num, value_denom, quantity_num, quantity_denom)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `;
+      description
+    );
 
     const value_num = Math.round(amount * DENOMINATOR);
 
     // 借 (Debit): 银行存款
-    const debit_split_guid = generateGuid();
-    await connection.execute(splitSql, [
-      debit_split_guid,
+    await createSplit(
+      connection,
       tx_guid,
       checking_account_guid,
       "Customer Payment",
       "Payment",
-      "n",
       value_num,
-      DENOMINATOR,
-      value_num,
-      DENOMINATOR,
-    ]);
+      value_num
+    );
 
     // 贷 (Credit): 应收账款 (来自动态查找)
-    const credit_split_guid = generateGuid();
-    await connection.execute(splitSql, [
-      credit_split_guid,
+    await createSplit(
+      connection,
       tx_guid,
-      ar_account_guid, // (修改)
+      ar_account_guid,
       "Customer Payment",
       "Payment",
-      "n",
       -value_num,
-      DENOMINATOR,
-      -value_num,
-      DENOMINATOR,
-    ]);
+      -value_num
+    );
 
     await connection.commit();
 

@@ -21,12 +21,6 @@
                     </div>
 
                     <div class="form-group">
-                        <label for="currency">{{ $t('vendors.currency') }}</label>
-                        <CurrencyPicker id="currency" v-model="vendor.currency" required :disabled="isEditMode" />
-                        <small v-if="isEditMode">{{ $t('vendors.currency_edit_warning') }}</small>
-                    </div>
-
-                    <div class="form-group">
                         <label for="active">{{ $t('vendors.active') }}</label>
                         <select id="active" v-model="vendor.active">
                             <option :value="true">Yes</option>
@@ -53,13 +47,12 @@
 <script setup>
 import { ref, reactive, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { useI18n } from 'vue-i18n'; // <-- 导入
+import { useI18n } from 'vue-i18n';
 import { getVendor, createVendor, updateVendor } from '../../services/purchaseService';
 import { parseApiError } from '../../utils/errorHandler';
 import FormError from '../../components/common/FormError.vue';
-import CurrencyPicker from '../../components/common/CurrencyPicker.vue';
+// (已移除) CurrencyPicker
 
-// (修改点) 确保这里是 useI18n()
 const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
@@ -71,12 +64,13 @@ const isSubmitting = ref(false);
 const error = ref(null);
 const apiError = ref(null);
 
+// (已修改)
 const vendor = reactive({
     name: '',
     id: '',
     notes: '',
     active: true,
-    currency: ''
+    // currency: '' // (已移除)
 });
 
 onMounted(async () => {
@@ -99,6 +93,7 @@ async function handleSubmit() {
     apiError.value = null;
     try {
         if (isEditMode.value) {
+            // (已修改)
             const updatePayload = {
                 name: vendor.name,
                 id: vendor.id,
@@ -107,6 +102,7 @@ async function handleSubmit() {
             };
             await updateVendor(guid.value, updatePayload);
         } else {
+            // (已修改)
             await createVendor(vendor);
         }
         router.push({ name: 'VendorList' });

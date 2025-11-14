@@ -37,7 +37,6 @@ const props = defineProps({
         type: String,
         default: null
     },
-    // (新增) 用于过滤 STOCK 账户
     filterByCommodityGuid: {
         type: String,
         default: null
@@ -52,20 +51,38 @@ const filteredAccounts = computed(() => {
     const types = Array.isArray(props.accountTypes) ? props.accountTypes : [props.accountTypes];
 
     return allAccounts.value.filter(acc => {
+        // 基础过滤
         const typeMatch = types.includes(acc.account_type);
         const selectableMatch = props.selectableOnly ? !acc.placeholder : true;
 
-        // (修改) 区分货币过滤和商品过滤
-        let currencyMatch = true;
-        if (props.filterByCurrencyGuid) {
-            // 过滤非 STOCK 账户 (如 Expense, Asset)
-            currencyMatch = acc.commodity_guid === props.filterByCurrencyGuid;
-        } else if (props.filterByCommodityGuid && acc.account_type === 'STOCK') {
-            // 专门过滤 STOCK 账户
-            currencyMatch = acc.commodity_guid === props.filterByCommodityGuid;
+        // --- (已修改) 重写过滤逻辑 ---
+
+        // 1. 商品过滤 (仅适用于 STOCK 账户)
+        let commodityMatch = true;
+        if (props.filterByCommodityGuid) {
+            // 如果此过滤器开启，则必须是 STOCK 账户且商品 GUID 匹配
+            commodityMatch = (acc.account_type === 'STOCK' && acc.commodity_guid === props.filterByCommodityGuid);
         }
 
-        return typeMatch && selectableMatch && currencyMatch;
+        // 2. 货币过滤 (适用于所有类型)
+        let currencyMatch = true;
+        if (props.filterByCurrencyGuid) {
+            if (acc.account_type === 'STOCK') {
+                // 对于 STOCK 账户, 我们检查其 *父* 账户的货币
+                if (!acc.parent_guid) {
+                    currencyMatch = false;
+                } else {
+                    const parentAccount = allAccounts.value.find(p => p.guid === acc.parent_guid);
+                    currencyMatch = parentAccount ? parentAccount.commodity_guid === props.filterByCurrencyGuid : false;
+                }
+            } else {
+                // 对于非 STOCK 账户, 我们检查其 *自身* 的货币
+                currencyMatch = acc.commodity_guid === props.filterByCurrencyGuid;
+            }
+        }
+        // --- 逻辑结束 ---
+
+        return typeMatch && selectableMatch && currencyMatch && commodityMatch;
     });
 });
 

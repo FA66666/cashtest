@@ -15,7 +15,8 @@
 
                     <div class="form-group">
                         <label for="currency">{{ $t('purchases.currency') }}</label>
-                        <CurrencyPicker id="currency" v-model="bill.currency_guid" required />
+                        <CurrencyPicker id="currency" v-model="bill.currency_guid" required
+                            @currenciesLoaded="allCurrencies = $event" />
                     </div>
 
                     <div class="form-group">
@@ -60,7 +61,8 @@
                             <td>
                                 <AccountPicker v-if="item.isStockItem" v-model="item.asset_or_expense_account_guid"
                                     :accountTypes="['STOCK']" placeholder="Select Stock Account" required
-                                    :filterByCommodityGuid="item.commodity_guid" />
+                                    :filterByCommodityGuid="item.commodity_guid"
+                                    :filterByCurrencyGuid="bill.currency_guid" />
 
                                 <AccountPicker v-if="!item.isStockItem" v-model="item.asset_or_expense_account_guid"
                                     :accountTypes="['EXPENSE', 'ASSET']" placeholder="Select Expense/Asset Account"
@@ -105,7 +107,6 @@ import AccountPicker from '../../components/common/AccountPicker.vue';
 import VendorPicker from '../../components/common/VendorPicker.vue';
 import FormError from '../../components/common/FormError.vue';
 import CommodityPicker from '../../components/common/CommodityPicker.vue';
-// (新增)
 import CurrencyPicker from '../../components/common/CurrencyPicker.vue';
 
 const { t } = useI18n();
@@ -113,13 +114,13 @@ const router = useRouter();
 
 const isLoading = ref(false);
 const apiError = ref(null);
-const allCurrencies = ref([]); // (新增)
+const allCurrencies = ref([]);
 
 const getISODateTime = () => new Date().toISOString().slice(0, 16);
 
 const bill = reactive({
     vendor_guid: '',
-    currency_guid: '', // (新增)
+    currency_guid: '',
     date_opened: getISODateTime(),
     notes: '',
     line_items: [
@@ -134,18 +135,15 @@ const bill = reactive({
     ]
 });
 
-// (新增)
 watch(() => bill.currency_guid, (newCurrency, oldCurrency) => {
     if (newCurrency !== oldCurrency) {
         bill.line_items.forEach(item => {
-            if (!item.isStockItem) { // 只重置费用科目
-                item.asset_or_expense_account_guid = '';
-            }
+            // (修改) 现在我们重置 *所有* 科目
+            item.asset_or_expense_account_guid = '';
         });
     }
 });
 
-// (新增)
 const selectedCurrencyMnemonic = computed(() => {
     if (!bill.currency_guid || allCurrencies.value.length === 0) return 'USD';
     const currency = allCurrencies.value.find(c => c.guid === bill.currency_guid);
@@ -180,7 +178,7 @@ const handleSubmit = async () => {
     try {
         const apiPayload = {
             vendor_guid: bill.vendor_guid,
-            currency_guid: bill.currency_guid, // (新增)
+            currency_guid: bill.currency_guid,
             date_opened: formatDateTimeForAPI(bill.date_opened),
             notes: bill.notes,
             line_items: bill.line_items.map(item => ({

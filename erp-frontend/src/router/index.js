@@ -15,16 +15,12 @@ const routes = [
     children: [
       { path: "", name: "Dashboard", component: Dashboard },
 
-      // (修改点)
-      // 我们将 'Sales' 路由（侧边栏父级链接）
-      // 和 'SalesInvoiceList' 合并。
-      // 'path: /sales' 将直接显示发票列表。
+      // ... (Sales routes) ...
       {
         path: "sales",
-        name: "SalesInvoiceList", // <-- 名称改为 'SalesInvoiceList'
+        name: "SalesInvoiceList",
         component: () => import("../views/sales/SalesInvoiceList.vue"),
       },
-      // (新增) 销售发票详情
       {
         path: "sales/invoices/:guid",
         name: "SalesInvoiceDetail",
@@ -59,13 +55,12 @@ const routes = [
         meta: { roles: ["admin", "finance"] },
       },
 
-      // (采购路由保持不变)
+      // ... (Purchase routes) ...
       {
         path: "purchases/bills",
         name: "PurchaseBillList",
         component: () => import("../views/purchases/PurchaseBillList.vue"),
       },
-      // (新增) 采购账单详情
       {
         path: "purchases/bills/:guid",
         name: "PurchaseBillDetail",
@@ -100,11 +95,23 @@ const routes = [
         meta: { roles: ["admin", "finance"] },
       },
 
-      // (库存路由保持不变)
+      // (修改) Inventory routes
       {
         path: "inventory",
         name: "Inventory",
         component: () => import("../views/inventory/InventoryList.vue"),
+      },
+      // (新增)
+      {
+        path: "inventory/item/:commodity_guid",
+        name: "InventoryItemDetail",
+        component: () => import("../views/inventory/InventoryItemDetail.vue"),
+      },
+      {
+        path: "inventory/new",
+        name: "InventoryCreateItem",
+        component: () => import("../views/inventory/CreateItem.vue"),
+        meta: { roles: ["admin"] },
       },
       {
         path: "inventory/adjust",
@@ -112,7 +119,7 @@ const routes = [
         component: () => import("../views/inventory/InventoryAdjustment.vue"),
       },
 
-      // (总账路由保持不变)
+      // ... (Ledger routes) ...
       {
         path: "ledger",
         name: "AccountList",
@@ -137,31 +144,31 @@ const routes = [
         meta: { roles: ["admin"] },
       },
 
-      // (报表路由保持不变)
+      // ... (Reports routes) ...
       {
         path: "reports",
         name: "Reports",
         component: () => import("../views/reports/ReportsDashboard.vue"),
         meta: { roles: ["admin", "finance"] },
-      }, //
+      },
       {
         path: "reports/trial-balance",
         name: "ReportTrialBalance",
         component: () => import("../views/reports/ReportTrialBalance.vue"),
         meta: { roles: ["admin", "finance"] },
-      }, //
+      },
       {
         path: "reports/profit-loss",
         name: "ReportProfitLoss",
         component: () => import("../views/reports/ReportProfitLoss.vue"),
         meta: { roles: ["admin", "finance"] },
-      }, //
+      },
       {
         path: "reports/balance-sheet",
         name: "ReportBalanceSheet",
         component: () => import("../views/reports/ReportBalanceSheet.vue"),
         meta: { roles: ["admin", "finance"] },
-      }, //
+      },
     ],
   },
   {
@@ -178,7 +185,7 @@ const router = createRouter({
 
 // (路由守卫保持不变)
 router.beforeEach((to, from, next) => {
-  const authStore = useAuthStore(); //
+  const authStore = useAuthStore();
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {
     next({ name: "Login" });
   } else if (

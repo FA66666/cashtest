@@ -26,7 +26,8 @@ defineProps({
         default: 'Select a currency'
     }
 });
-defineEmits(['update:modelValue']);
+// (修改) 添加 'currenciesLoaded' 事件
+const emit = defineEmits(['update:modelValue', 'currenciesLoaded']);
 
 const currencies = ref([]);
 const isLoading = ref(false);
@@ -34,9 +35,10 @@ const isLoading = ref(false);
 onMounted(async () => {
     isLoading.value = true;
     try {
-        // TODO: 考虑将此 API 调用缓存在 Pinia store 中
         const response = await getCurrencies();
         currencies.value = response.data;
+        // (新增) 将加载的货币列表发送给父组件
+        emit('currenciesLoaded', currencies.value);
     } catch (error) {
         console.error("Failed to load currencies:", error);
     } finally {

@@ -15,18 +15,13 @@
 
                     <div class="form-group">
                         <label for="currency">{{ $t('sales.currency') }}</label>
-                        <CurrencyPicker id="currency" v-model="invoice.currency_guid" required />
+                        <CurrencyPicker id="currency" v-model="invoice.currency_guid" required
+                            @currenciesLoaded="allCurrencies = $event" />
                     </div>
 
                     <div class="form-group">
                         <label for="date_opened">{{ $t('sales.date') }}</label>
                         <input type="datetime-local" id="date_opened" v-model="invoice.date_opened" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="cogs_account">{{ $t('sales.cogs_account') }}</label>
-                        <AccountPicker id="cogs_account" v-model="invoice.cogs_account_guid" :accountTypes="['EXPENSE']"
-                            placeholder="Select COGS Account" required :filterByCurrencyGuid="invoice.currency_guid" />
                     </div>
 
                     <div class="form-group full-width">
@@ -45,7 +40,6 @@
                             <th>{{ $t('sales.income_account') }}</th>
                             <th>{{ $t('sales.quantity') }}</th>
                             <th>{{ $t('sales.price') }}</th>
-                            <th>{{ $t('sales.cost') }}</th>
                             <th>Total</th>
                             <th></th>
                         </tr>
@@ -66,10 +60,7 @@
                             <td>
                                 <input type="number" step="0.01" min="0" v-model.number="item.price" required>
                             </td>
-                            <td>
-                                <input type="number" step="0.01" min="0" v-model.number="item.cost" required>
-                            </td>
-                            <td>{{ formatCurrency(item.quantity * item.price) }}</td>
+                            <td>{{ formatCurrency(item.quantity * item.price, selectedCurrencyMnemonic) }}</td>
                             <td>
                                 <button type="button" @click="removeLineItem(index)" class="btn-remove"
                                     :disabled="invoice.line_items.length <= 1">X</button>
@@ -81,7 +72,7 @@
             </fieldset>
 
             <div class="form-summary">
-                <h3>Total: {{ formatCurrency(totalAmount) }}</h3>
+                <h3>Total: {{ formatCurrency(totalAmount, selectedCurrencyMnemonic) }}</h3>
                 <button type="submit" :disabled="isLoading" class="btn-submit">
                     {{ isLoading ? $t('submitting') : $t('sales.create_invoice_btn') }}
                 </button>
@@ -92,7 +83,6 @@
 </template>
 
 <script setup>
-// (修改) 导入 watch
 import { ref, reactive, computed, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
@@ -103,7 +93,6 @@ import AccountPicker from '../../components/common/AccountPicker.vue';
 import CustomerPicker from '../../components/common/CustomerPicker.vue';
 import FormError from '../../components/common/FormError.vue';
 import CommodityPicker from '../../components/common/CommodityPicker.vue';
-// (新增)
 import CurrencyPicker from '../../components/common/CurrencyPicker.vue';
 
 const { t } = useI18n();
@@ -111,31 +100,38 @@ const router = useRouter();
 
 const isLoading = ref(false);
 const apiError = ref(null);
+const allCurrencies = ref([]);
 
 const getISODateTime = () => new Date().toISOString().slice(0, 16);
 
 // (已修改)
 const invoice = reactive({
     customer_guid: '',
-    currency_guid: '', // (新增)
+    currency_guid: '',
     date_opened: getISODateTime(),
     notes: '',
-    cogs_account_guid: '',
+    // (移除) cogs_account_guid: '', 
     line_items: [
         {
             commodity_guid: '',
             income_account_guid: '',
             quantity: 1,
             price: 0,
-            cost: 0
+            // (移除) cost: 0 
         }
     ]
 });
 
-// (新增) 侦听货币变化，重置科目选择
+const selectedCurrencyMnemonic = computed(() => {
+    if (!invoice.currency_guid || allCurrencies.value.length === 0) return 'USD';
+    const currency = allCurrencies.value.find(c => c.guid === invoice.currency_guid);
+    return currency ? currency.mnemonic : 'USD';
+});
+
+// (修改)
 watch(() => invoice.currency_guid, (newCurrency, oldCurrency) => {
     if (newCurrency !== oldCurrency) {
-        invoice.cogs_account_guid = '';
+        // (移除) invoice.cogs_account_guid = '';
         invoice.line_items.forEach(item => {
             item.income_account_guid = '';
         });
@@ -147,12 +143,12 @@ const totalAmount = computed(() => {
 });
 
 const addLineItem = () => {
+    // (修改)
     invoice.line_items.push({
         commodity_guid: '',
         income_account_guid: '',
         quantity: 1,
         price: 0,
-        cost: 0
     });
 };
 
@@ -170,16 +166,16 @@ const handleSubmit = async () => {
         // (已修改)
         const apiPayload = {
             customer_guid: invoice.customer_guid,
-            currency_guid: invoice.currency_guid, // (新增)
+            currency_guid: invoice.currency_guid,
             date_opened: formatDateTimeForAPI(invoice.date_opened),
             notes: invoice.notes,
-            cogs_account_guid: invoice.cogs_account_guid,
+            // (移除) cogs_account_guid
             line_items: invoice.line_items.map(item => ({
                 commodity_guid: item.commodity_guid,
                 income_account_guid: item.income_account_guid,
                 quantity: item.quantity,
                 price: item.price,
-                cost: item.cost,
+                // (移除) cost
                 description: ''
             }))
         };

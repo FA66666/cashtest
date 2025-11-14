@@ -15,7 +15,6 @@
                 <tr>
                     <th>{{ $t('vendors.name') }}</th>
                     <th>{{ $t('vendors.id') }}</th>
-                    <th>{{ $t('vendors.currency') }}</th>
                     <th>{{ $t('vendors.active') }}</th>
                     <th v-if="authStore.hasRole(['admin'])">{{ $t('vendors.actions') }}</th>
                 </tr>
@@ -24,7 +23,6 @@
                 <tr v-for="vendor in vendors" :key="vendor.guid">
                     <td>{{ vendor.name }}</td>
                     <td>{{ vendor.id }}</td>
-                    <td>{{ vendor.currency }}</td>
                     <td>{{ vendor.active ? 'Yes' : 'No' }}</td>
                     <td v-if="authStore.hasRole(['admin'])">
                         <router-link :to="{ name: 'VendorDetail', params: { guid: vendor.guid } }" class="btn-edit">

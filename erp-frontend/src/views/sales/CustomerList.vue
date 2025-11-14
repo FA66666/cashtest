@@ -15,7 +15,6 @@
                 <tr>
                     <th>{{ $t('customers.name') }}</th>
                     <th>{{ $t('customers.id') }}</th>
-                    <th>{{ $t('customers.currency') }}</th>
                     <th>{{ $t('customers.active') }}</th>
                     <th v-if="authStore.hasRole(['admin'])">{{ $t('customers.actions') }}</th>
                 </tr>
@@ -24,7 +23,6 @@
                 <tr v-for="customer in customers" :key="customer.guid">
                     <td>{{ customer.name }}</td>
                     <td>{{ customer.id }}</td>
-                    <td>{{ customer.currency }}</td>
                     <td>{{ customer.active ? 'Yes' : 'No' }}</td>
                     <td v-if="authStore.hasRole(['admin'])">
                         <router-link :to="{ name: 'CustomerDetail', params: { guid: customer.guid } }" class="btn-edit">

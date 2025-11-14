@@ -112,8 +112,6 @@
     "amount": "金额",
     "checking_account": "银行/现金账户",
     "item": "商品",
-    "cost": "成本",
-    "cogs_account": "销货成本科目",
     "invoice_detail_title": "发票详情"
   },
   "purchases": {
@@ -157,7 +155,15 @@
     "submit_adjustment": "提交调整",
     "valuation_currency": "记账货币",
     "total_value": "总价值 (CNY)",
-    "is_stock_item": "是库存商品吗？"
+    "is_stock_item": "是库存商品吗？",
+    "create_item": "创建新商品",
+    "create_item_btn": "创建商品",
+    "item_details": "商品详情",
+    "select_valuation_account": "选择记账父账户 (例如：库存 (USD))",
+    "valuation_help": "这将决定您的商品价值以哪种货币进行跟踪。",
+    "summary_by_currency": "按货币汇总",
+    "ledger_stream": "详细流水",
+    "value_change": "价值变动"
   },
   "reports": {
     "trial_balance": "试算平衡表",

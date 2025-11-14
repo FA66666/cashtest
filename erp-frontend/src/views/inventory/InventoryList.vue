@@ -2,9 +2,15 @@
     <div>
         <div class="page-header">
             <h1>{{ $t('nav.inventory') }}</h1>
-            <router-link :to="{ name: 'InventoryAdjustment' }" class="btn-primary">
-                {{ $t('inventory.adjust') }}
-            </router-link>
+            <div class="button-group">
+                <router-link :to="{ name: 'InventoryCreateItem' }" class="btn-secondary"
+                    v-if="authStore.hasRole(['admin'])">
+                    {{ $t('inventory.create_item') }}
+                </router-link>
+                <router-link :to="{ name: 'InventoryAdjustment' }" class="btn-primary">
+                    {{ $t('inventory.adjust') }}
+                </router-link>
+            </div>
         </div>
 
         <div v-if="isLoading" class="loading-message">
@@ -27,7 +33,11 @@
             </thead>
             <tbody>
                 <tr v-for="item in stockList" :key="item.guid">
-                    <td>{{ item.fullname }}</td>
+                    <td>
+                        <router-link :to="{ name: 'InventoryItemDetail', params: { commodity_guid: item.guid } }">
+                            {{ item.fullname }}
+                        </router-link>
+                    </td>
                     <td>{{ item.mnemonic }}</td>
                     <td>{{ item.stock_level }}</td>
                     <td>{{ item.currency_code }}</td>
@@ -47,10 +57,11 @@ import { ref, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { getStockItems, getStockLevel } from '../../services/inventoryService';
 import { parseApiError } from '../../utils/errorHandler';
-// (新增) 导入 formatCurrency
 import { formatCurrency } from '../../utils/formatters';
+import { useAuthStore } from '../../store/auth';
 
 const { t } = useI18n();
+const authStore = useAuthStore();
 const stockList = ref([]);
 const isLoading = ref(false);
 const error = ref(null);
@@ -59,15 +70,12 @@ onMounted(async () => {
     isLoading.value = true;
     error.value = null;
     try {
-        // 1. 获取所有库存商品 (SKUs)
         const itemsResponse = await getStockItems();
         const items = itemsResponse.data;
 
-        // 2. 为每个商品并行获取其库存水平 (N+1, 但使用 Promise.all)
         const levelPromises = items.map(async (item) => {
             try {
                 const levelResponse = await getStockLevel(item.guid);
-                // (修改) 扩展返回的数据
                 return {
                     ...item,
                     stock_level: levelResponse.data.stock_level,
@@ -75,7 +83,6 @@ onMounted(async () => {
                     currency_code: levelResponse.data.currency_code
                 };
             } catch (err) {
-                // 如果单个商品库存账户未找到, 返回 0
                 return {
                     ...item,
                     stock_level: 0,
@@ -94,3 +101,12 @@ onMounted(async () => {
     }
 });
 </script>
+
+<style lang="scss" scoped>
+@use "../../assets/page-styles.scss";
+
+.button-group {
+    display: flex;
+    gap: 1rem;
+}
+</style>

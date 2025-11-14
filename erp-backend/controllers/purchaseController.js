@@ -12,11 +12,16 @@ async function findOrCreateApAccount(connection, vendor_guid, currency_guid) {
     SELECT 
       v.name as vendor_name, 
       com.mnemonic as currency_mnemonic
-    FROM vendors v
-    JOIN commodities com ON com.guid = ?
-    WHERE v.guid = ?
+    FROM vendors v, commodities com
+    WHERE com.guid = ?
+    AND v.guid = ?
   `;
-  const [info] = await connection.query(infoSql, [currency_guid, vendor_guid]);
+  // (修改) 修复了查询
+  const [infoRows] = await connection.query(infoSql, [
+    currency_guid,
+    vendor_guid,
+  ]);
+  const info = infoRows[0];
   if (!info) {
     throw new Error("Vendor or Currency not found.");
   }
@@ -28,10 +33,11 @@ async function findOrCreateApAccount(connection, vendor_guid, currency_guid) {
   // 3. 尝试查找
   const findSql =
     "SELECT guid FROM accounts WHERE name = ? AND commodity_guid = ?";
-  const [existing] = await connection.query(findSql, [
+  const [existingRows] = await connection.query(findSql, [
     account_name,
     currency_guid,
   ]);
+  const existing = existingRows[0];
   if (existing) {
     return existing.guid;
   }
@@ -134,8 +140,6 @@ exports.updateVendor = async (req, res, next) => {
       return res.status(404).json({ error: res.__("errors.vendor_not_found") });
     }
 
-    // (TODO) 更新关联的 A/P 账户名称
-
     res.json({ guid, name, id, notes, active });
   } catch (err) {
     if (err.code === "ER_DUP_ENTRY") {
@@ -157,8 +161,6 @@ exports.deleteVendor = async (req, res, next) => {
         error: "Cannot delete vendor: Bills are associated with this vendor.",
       });
     }
-
-    // (TODO) 删除关联的 A/P 账户
 
     const result = await db.query("DELETE FROM vendors WHERE guid = ?", [guid]);
 

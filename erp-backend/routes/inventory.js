@@ -7,6 +7,9 @@ const { validateAdjustInventory } = require("../middleware/validators");
 // 所有 /inventory 路由都需要认证
 router.use(isAuthenticated);
 
+// (!!新增!!) 批量获取库存列表和水平 (解决 N+1 问题)
+router.get("/stock-levels-batch", inventoryController.getBatchStockLevels);
+
 // (新增) 获取特定商品的详细信息 (汇总 + 流水)
 router.get(
   "/item/:commodity_guid",

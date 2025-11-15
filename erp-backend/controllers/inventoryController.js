@@ -272,3 +272,66 @@ exports.adjustInventory = async (req, res, next) => {
     connection.release();
   }
 };
+
+/**
+ * (!!新增!!) 批量获取所有商品的库存水平和价值
+ */
+exports.getBatchStockLevels = async (req, res, next) => {
+  try {
+    // 这个查询结合了 commodities, accounts, splits, transactions, 和 prices
+    // 1. 从 'TEMPLATE' (商品) 开始
+    // 2. 找到对应的 'STOCK' 账户
+    // 3. 汇总所有 'splits' (分录) 的 quantity
+    // 4. 汇总所有 'splits' (分录) 的 value，并使用 'prices' 表统一换算为 CNY
+    const sql = `
+      SELECT 
+        c.guid, 
+        c.mnemonic, 
+        c.fullname,
+        COALESCE(SUM(s.quantity_num / s.quantity_denom), 0) AS stock_level,
+        COALESCE(SUM(
+          (s.value_num / s.value_denom)
+          *
+          COALESCE(
+            (
+              SELECT (p.value_num / p.value_denom)
+              FROM prices p
+              WHERE 
+                p.commodity_guid = t.currency_guid 
+                AND p.currency_guid = ?              -- 硬编码为 CNY
+                AND p.date <= t.post_date
+              ORDER BY p.date DESC
+              LIMIT 1
+            ), 
+            CASE 
+              WHEN t.currency_guid = ? THEN 1.0 -- 硬编码为 CNY
+              ELSE 0.0 -- (修改) 使用 0.0 替代 NULL 来防止SUM忽略
+            END
+          )
+        ), 0) AS total_value
+      FROM commodities c
+      LEFT JOIN accounts a ON a.commodity_guid = c.guid AND a.account_type = 'STOCK'
+      LEFT JOIN splits s ON s.account_guid = a.guid
+      LEFT JOIN transactions t ON s.tx_guid = t.guid
+      WHERE c.namespace = 'TEMPLATE'
+      GROUP BY c.guid, c.mnemonic, c.fullname
+      ORDER BY c.mnemonic;
+    `;
+
+    const params = [CNY_CURRENCY_GUID, CNY_CURRENCY_GUID];
+
+    const results = await db.query(sql, params);
+
+    // 为前端添加 currency_code
+    const responseData = results.map((item) => ({
+      ...item,
+      stock_level: parseFloat(item.stock_level),
+      total_value: parseFloat(item.total_value),
+      currency_code: "CNY", // 因为所有价值都已转换为CNY
+    }));
+
+    res.json(responseData);
+  } catch (err) {
+    next(err);
+  }
+};

@@ -60,7 +60,8 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { getStockItems, getStockLevel } from '../../services/inventoryService';
+// (修改) 导入新的 batch 函数，移除旧的
+import { getStockLevelsBatch } from '../../services/inventoryService';
 import { parseApiError } from '../../utils/errorHandler';
 import { formatCurrency } from '../../utils/formatters';
 import { useAuthStore } from '../../store/auth';
@@ -75,29 +76,17 @@ onMounted(async () => {
     isLoading.value = true;
     error.value = null;
     try {
-        const itemsResponse = await getStockItems();
-        const items = itemsResponse.data;
+        // (修改) 只调用一次新的 batch API
+        const response = await getStockLevelsBatch();
 
-        const levelPromises = items.map(async (item) => {
-            try {
-                const levelResponse = await getStockLevel(item.guid);
-                return {
-                    ...item,
-                    stock_level: levelResponse.data.stock_level,
-                    total_value: levelResponse.data.total_value,
-                    currency_code: levelResponse.data.currency_code
-                };
-            } catch (err) {
-                return {
-                    ...item,
-                    stock_level: 0,
-                    total_value: 0,
-                    currency_code: 'N/A'
-                };
-            }
-        });
+        // (修改) API 现在一次性返回所有数据
+        stockList.value = response.data;
 
-        stockList.value = await Promise.all(levelPromises);
+        // (移除) 不再需要 N+1 循环
+        // const itemsResponse = await getStockItems();
+        // const items = itemsResponse.data;
+        // const levelPromises = items.map(async (item) => { ... });
+        // stockList.value = await Promise.all(levelPromises);
 
     } catch (err) {
         error.value = parseApiError(err);
